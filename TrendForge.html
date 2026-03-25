@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrendForge Predict v4</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bl:#185FA5;--bl-bg:#E6F1FB;--bl-t:#0C447C;
+  --gn:#3B6D11;--gn-bg:#EAF3DE;--gn-t:#27500A;
+  --am:#854F0B;--am-bg:#FAEEDA;--am-t:#633806;
+  --rd:#A32D2D;--rd-bg:#FCEBEB;--rd-t:#791F1F;
+  --pu:#534AB7;--pu-bg:#EEEDFE;--pu-t:#3C3489;
+}
+body{font-family:system-ui,sans-serif;color:#1a1a2e;background:#f4f2ee;margin:0;padding:16px;}
+.d{max-width:720px;margin:0 auto;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:11px 0 10px;border-bottom:1px solid #e8e5df;margin-bottom:12px;}
+.brand{font-size:15px;font-weight:500;color:#1a1a2e;}.brand em{color:#185FA5;font-style:normal;}
+.dot{width:6px;height:6px;border-radius:50%;background:#3B6D11;display:inline-block;margin-right:4px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.stxt{font-size:11px;color:#888780;}
+.card{background:#fff;border:0.5px solid #e8e5df;border-radius:12px;margin-bottom:10px;overflow:hidden;}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;user-select:none;transition:background .15s;}
+.card-head:hover{background:#f7f6f2;}
+.card-title{font-size:12px;font-weight:500;color:#1a1a2e;display:flex;align-items:center;gap:7px;}
+.card-meta{display:flex;align-items:center;gap:8px;}
+.chv{font-size:10px;color:#888780;transition:transform .2s;display:inline-block;}
+.chv.open{transform:rotate(180deg);}
+.card-body{padding:0 14px 12px;display:none;}
+.card-body.open{display:block;}
+.sec{font-size:10px;font-weight:500;letter-spacing:1px;color:#888780;text-transform:uppercase;margin-bottom:8px;}
+.mc{background:#f7f6f2;border-radius:8px;padding:10px 12px;}
+.mc-l{font-size:10px;color:#888780;margin-bottom:2px;}
+.mc-v{font-size:20px;font-weight:500;line-height:1.1;color:#1a1a2e;}
+.mc-d{font-size:11px;margin-top:2px;}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;}
+.pill{padding:4px 10px;border-radius:20px;font-size:11px;border:0.5px solid #d3d1c7;background:#fff;cursor:pointer;transition:all .15s;color:#5F5E5A;display:inline-flex;align-items:center;gap:4px;}
+.pill:hover{border-color:#185FA5;color:#0C447C;}
+.pill.on{background:#E6F1FB;border-color:#185FA5;color:#0C447C;}
+.ptag{font-size:9px;font-weight:500;padding:1px 5px;border-radius:10px;}
+.inp{padding:8px 12px;border:0.5px solid #d3d1c7;border-radius:8px;background:#fff;color:#1a1a2e;font-size:13px;font-family:inherit;}
+.inp:focus{outline:none;border-color:#185FA5;}
+.sel{padding:8px 10px;border:0.5px solid #d3d1c7;border-radius:8px;background:#fff;color:#1a1a2e;font-size:12px;font-family:inherit;}
+.btn{padding:8px 14px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;}
+.btn:hover{opacity:.88;}.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-sm{padding:4px 9px;font-size:11px;background:#E6F1FB;color:#0C447C;border:0.5px solid #185FA5;border-radius:6px;cursor:pointer;font-family:inherit;}
+.log{background:#f7f6f2;border-radius:8px;padding:8px 11px;font-size:11px;font-family:monospace;max-height:70px;overflow-y:auto;margin-bottom:10px;}
+.log .ok{color:#3B6D11;}.log .er{color:#A32D2D;}.log .inf{color:#185FA5;}
+.row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:0.5px solid #e8e5df;}
+.row:last-child{border-bottom:none;}
+.bw{height:5px;background:#f1efeb;border-radius:3px;margin-top:3px;overflow:hidden;}
+.bf{height:100%;border-radius:3px;transition:width .5s;}
+.cw{position:relative;width:100%;height:130px;}
+.exp-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:0.5px solid #e8e5df;}
+.exp-row:last-child{border-bottom:none;}
+.ai-badge{font-size:9px;padding:2px 7px;border-radius:10px;background:#EEEDFE;color:#3C3489;font-weight:500;}
+.key-inp{width:100%;padding:6px 10px;border:0.5px solid #d3d1c7;border-radius:6px;font-size:11px;background:#fff;color:#1a1a2e;font-family:monospace;}
+.co-row{padding:10px 0;border-bottom:0.5px solid #e8e5df;}
+.co-row:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+<div class="d">
+
+<div class="topbar">
+  <div class="brand"><em>TrendForge</em> Predict <span style="font-size:11px;font-weight:400;color:#888780;">v4 · any product</span></div>
+  <div><span class="dot"></span><span class="stxt" id="stxt">Ready</span></div>
+</div>
+
+<!-- SETUP CARD -->
+<div class="card">
+  <div class="card-head" onclick="tog('cfg')">
+    <div class="card-title">⚙ Setup — API keys &amp; location</div>
+    <div class="card-meta"><span class="tag" style="background:#EAF3DE;color:#27500A" id="cfg-status">configure</span><span class="chv open" id="cfg-chv">▾</span></div>
+  </div>
+  <div class="card-body open" id="cfg-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div>
+        <div style="font-size:10px;color:#888780;margin-bottom:3px;">YouTube Data API v3 <span style="color:#3B6D11">(10,000 free/day)</span></div>
+        <input class="key-inp" id="ytk" placeholder="AIzaSy... — console.cloud.google.com">
+      </div>
+      <div>
+        <div style="font-size:10px;color:#888780;margin-bottom:3px;">UN Comtrade key <span style="color:#3B6D11">(500 free/day)</span></div>
+        <input class="key-inp" id="ctk" placeholder="comtradeplus.un.org key">
+      </div>
+      <div>
+        <div style="font-size:10px;color:#888780;margin-bottom:3px;">Claude AI key <span style="color:#534AB7">(~₹0.50/search)</span></div>
+        <input class="key-inp" id="aik" placeholder="sk-ant-api... — console.anthropic.com">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;">
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        <div style="font-size:10px;color:#888780;">Scope</div>
+        <select class="sel" id="scope" onchange="onScope()" style="font-size:11px;padding:6px 8px;">
+          <option value="global">Global</option>
+          <option value="country" selected>Country</option>
+          <option value="state">State</option>
+          <option value="city">City</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;" id="gcountry">
+        <div style="font-size:10px;color:#888780;">Country</div>
+        <select class="sel" id="country" onchange="onCountry()" style="font-size:11px;padding:6px 8px;"></select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;" id="gstate" style="display:none;">
+        <div style="font-size:10px;color:#888780;">State</div>
+        <select class="sel" id="state" onchange="onState()" style="font-size:11px;padding:6px 8px;"></select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;" id="gcity" style="display:none;">
+        <div style="font-size:10px;color:#888780;">City</div>
+        <select class="sel" id="city" onchange="onCity()" style="font-size:11px;padding:6px 8px;"></select>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#0C447C;background:#E6F1FB;border-radius:6px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;margin-top:4px;">
+      📍 <span id="crumb">India</span>
+    </div>
+    <div style="font-size:10px;color:#888780;margin-top:6px;">No keys needed to start — simulated mode works for all features.</div>
+  </div>
+</div>
+
+<!-- TRENDING CARD -->
+<div class="card">
+  <div class="card-head" onclick="tog('trends')">
+    <div class="card-title">📈 Live trending — <span id="trend-loc" style="color:#185FA5">India</span></div>
+    <div class="card-meta">
+      <button class="btn-sm" onclick="event.stopPropagation();refreshPills()">↻ Refresh</button>
+      <span class="chv open" id="trends-chv">▾</span>
+    </div>
+  </div>
+  <div class="card-body open" id="trends-body">
+    <div style="font-size:10px;color:#888780;margin-bottom:7px;" id="pmeta">Loading trends...</div>
+    <div id="pills" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+  </div>
+</div>
+
+<!-- SEARCH BAR -->
+<div style="display:flex;gap:8px;margin-bottom:10px;">
+  <input class="inp" id="pinput" placeholder="Any product — solar panels, coffee, rubber gaskets, ayurvedic medicine..." value="solar panels" style="flex:1;">
+  <button class="btn" id="sbtn" onclick="run()">Analyse live</button>
+</div>
+
+<!-- LOG -->
+<div id="logarea" class="log" style="display:none;"></div>
+
+<!-- RESULTS -->
+<div id="results" style="display:none;">
+
+  <!-- OVERVIEW -->
+  <div class="card">
+    <div class="card-head" onclick="tog('overview')">
+      <div class="card-title" id="ov-title">Overview</div>
+      <div class="card-meta"><span class="tag" id="ov-tag">—</span><span class="chv open" id="overview-chv">▾</span></div>
+    </div>
+    <div class="card-body open" id="overview-body">
+      <div class="g4" id="metrics" style="margin-top:4px;"></div>
+      <div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:0.5px solid #e8e5df;">
+        <div style="flex:1;font-size:11px;color:#5F5E5A;" id="one-liner">—</div>
+        <div style="text-align:center;min-width:70px;">
+          <div style="font-size:30px;font-weight:500;color:#1a1a2e;" id="pbig">—</div>
+          <div style="font-size:10px;color:#888780;">explode prob.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGNALS -->
+  <div class="card">
+    <div class="card-head" onclick="tog('signals')">
+      <div class="card-title">📡 Demand signals</div>
+      <div class="card-meta"><span style="font-size:11px;color:#888780;" id="sig-sum">—</span><span class="chv" id="signals-chv">▾</span></div>
+    </div>
+    <div class="card-body" id="signals-body">
+      <div id="sigs" style="margin-top:4px;"></div>
+      <div style="position:relative;width:100%;height:130px;margin-top:10px;"><canvas id="ytc"></canvas></div>
+      <div style="font-size:10px;color:#888780;margin-top:4px;" id="cnote"></div>
+    </div>
+  </div>
+
+  <!-- RAW MATERIALS -->
+  <div class="card">
+    <div class="card-head" onclick="tog('rawmat')">
+      <div class="card-title">⛏ Raw materials <span class="ai-badge">AI-generated</span></div>
+      <div class="card-meta"><span style="font-size:11px;color:#888780;" id="rm-sum">—</span><span class="chv" id="rawmat-chv">▾</span></div>
+    </div>
+    <div class="card-body" id="rawmat-body">
+      <div id="rmlist" style="margin-top:4px;"></div>
+    </div>
+  </div>
+
+  <!-- EXPORTERS -->
+  <div class="card">
+    <div class="card-head" onclick="tog('exporters')">
+      <div class="card-title">🌍 Top exporters &amp; producers <span class="ai-badge">AI-generated</span></div>
+      <div class="card-meta"><span style="font-size:11px;color:#888780;" id="exp-sum">—</span><span class="chv" id="exporters-chv">▾</span></div>
+    </div>
+    <div class="card-body" id="exporters-body">
+      <div class="g2" style="margin-top:4px;">
+        <div>
+          <div style="font-size:11px;font-weight:500;margin-bottom:6px;color:#5F5E5A;">Top product exporters</div>
+          <div id="explist"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:500;margin-bottom:6px;color:#5F5E5A;">Key raw material sources</div>
+          <div id="prodlist"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPLY CHAIN -->
+  <div class="card">
+    <div class="card-head" onclick="tog('supplychain')">
+      <div class="card-title">🚢 Supply chain cost impact</div>
+      <div class="card-meta"><span style="font-size:11px;font-weight:500;color:#633806;" id="sc-sum">—</span><span class="chv" id="supplychain-chv">▾</span></div>
+    </div>
+    <div class="card-body" id="supplychain-body">
+      <div id="scsteps" style="margin-top:4px;"></div>
+    </div>
+  </div>
+
+  <!-- INVESTMENT -->
+  <div class="card">
+    <div class="card-head" onclick="tog('invest')">
+      <div class="card-title">💼 Investment intelligence <span class="ai-badge">AI-generated</span></div>
+      <div class="card-meta"><span style="font-size:11px;color:#888780;" id="inv-sum">—</span><span class="chv" id="invest-chv">▾</span></div>
+    </div>
+    <div class="card-body" id="invest-body">
+      <div id="colist" style="margin-top:4px;"></div>
+      <div style="margin-top:8px;padding:9px 11px;background:#f7f6f2;border-radius:8px;">
+        <div style="font-size:11px;font-weight:500;margin-bottom:3px;color:#1a1a2e;">Investment thesis</div>
+        <div style="font-size:11px;color:#5F5E5A;line-height:1.6;" id="inv-thesis">—</div>
+        <div style="font-size:10px;color:#888780;margin-top:5px;">Not financial advice. Research purposes only.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="empty" style="text-align:center;padding:28px 0;color:#888780;font-size:13px;">
+  Type any product and hit Analyse — AI generates intelligence for any product instantly
+</div>
+
+</div><!-- end .d -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let ytCh=null;
+
+const COUNTRIES=[
+  {c:'IN',n:'India',ct:'356'},{c:'CN',n:'China',ct:'156'},{c:'US',n:'United States',ct:'842'},
+  {c:'DE',n:'Germany',ct:'276'},{c:'GB',n:'United Kingdom',ct:'826'},{c:'JP',n:'Japan',ct:'392'},
+  {c:'BR',n:'Brazil',ct:'076'},{c:'AU',n:'Australia',ct:'036'},{c:'ZA',n:'South Africa',ct:'710'},
+  {c:'AE',n:'UAE',ct:'784'},{c:'SG',n:'Singapore',ct:'702'},{c:'FR',n:'France',ct:'251'},
+  {c:'IT',n:'Italy',ct:'380'},{c:'CA',n:'Canada',ct:'124'},{c:'MX',n:'Mexico',ct:'484'},
+  {c:'KR',n:'South Korea',ct:'410'},{c:'ID',n:'Indonesia',ct:'360'},{c:'TH',n:'Thailand',ct:'764'},
+  {c:'SA',n:'Saudi Arabia',ct:'682'},{c:'NG',n:'Nigeria',ct:'566'}
+];
+
+const STATES={
+  IN:['Gujarat','Maharashtra','Karnataka','Tamil Nadu','Uttar Pradesh','Rajasthan','Punjab',
+      'Haryana','West Bengal','Madhya Pradesh','Telangana','Andhra Pradesh','Odisha',
+      'Kerala','Delhi','Bihar','Assam','Chhattisgarh'],
+  US:['California','Texas','New York','Florida','Illinois','Pennsylvania','Ohio',
+      'Georgia','Michigan','New Jersey','Washington','Arizona','Massachusetts','Tennessee','Indiana'],
+  CN:['Guangdong','Shandong','Jiangsu','Zhejiang','Henan','Sichuan',
+      'Hebei','Hunan','Anhui','Beijing','Shanghai'],
+  DE:['Bavaria','North Rhine-Westphalia','Baden-Württemberg','Lower Saxony','Hesse','Berlin','Hamburg'],
+  GB:['England','Scotland','Wales','Northern Ireland'],
+  DEFAULT:['Region 1','Region 2','Region 3','Region 4']
+};
+
+const CITIES={
+  Gujarat:['Ahmedabad','Surat','Vadodara','Rajkot','Bhavnagar','Jamnagar','Gandhinagar','Morbi','Mehsana','Bharuch','Anand'],
+  Maharashtra:['Mumbai','Pune','Nagpur','Thane','Nashik','Aurangabad','Solapur'],
+  Karnataka:['Bangalore','Mysore','Mangalore','Hubli','Belgaum'],
+  'Tamil Nadu':['Chennai','Coimbatore','Madurai','Tiruchirappalli','Salem'],
+  'Uttar Pradesh':['Lucknow','Kanpur','Agra','Varanasi','Meerut','Ghaziabad'],
+  Delhi:['New Delhi','Dwarka','Rohini','South Delhi','East Delhi'],
+  California:['Los Angeles','San Francisco','San Diego','San Jose','Sacramento'],
+  Texas:['Houston','Dallas','Austin','San Antonio','Fort Worth'],
+  DEFAULT:['City A','City B','City C']
+};
+
+const TDATA={
+  global:[
+    {n:'Solar panels',t:'HOT',s:91},{n:'EV batteries',t:'HOT',s:88},{n:'AI chips',t:'HOT',s:86},
+    {n:'Organic skincare',t:'RISING',s:74},{n:'Bamboo textiles',t:'RISING',s:70},
+    {n:'Heat pumps',t:'RISING',s:67},{n:'Lithium carbonate',t:'WATCH',s:57}
+  ],
+  IN:[
+    {n:'Solar panels',t:'HOT',s:89},{n:'EV charging parts',t:'HOT',s:84},
+    {n:'Argan shampoo',t:'RISING',s:75},{n:'Steel pipes',t:'RISING',s:70},
+    {n:'Linen kurtas',t:'RISING',s:66},{n:'Brass fittings',t:'WATCH',s:58},
+    {n:'Organic cotton',t:'WATCH',s:52}
+  ],
+  Gujarat:[
+    {n:'Solar inverters',t:'HOT',s:92},{n:'Brass components',t:'HOT',s:87},
+    {n:'Denim fabric',t:'RISING',s:75},{n:'Diamond tools',t:'RISING',s:72},
+    {n:'Groundnut oil',t:'RISING',s:68},{n:'Ceramic tiles',t:'WATCH',s:55}
+  ],
+  Rajkot:[
+    {n:'Brass components',t:'HOT',s:91},{n:'Auto spare parts',t:'HOT',s:83},
+    {n:'Steel pipes',t:'RISING',s:74},{n:'Pump sets',t:'RISING',s:68},
+    {n:'Diesel engines',t:'WATCH',s:55}
+  ],
+  Ahmedabad:[
+    {n:'Solar panels',t:'HOT',s:88},{n:'Textile machinery',t:'RISING',s:76},
+    {n:'Pharma APIs',t:'RISING',s:72},{n:'Cotton yarn',t:'WATCH',s:61}
+  ],
+  CN:[
+    {n:'Solar cells',t:'HOT',s:94},{n:'Lithium batteries',t:'HOT',s:91},
+    {n:'EV charging',t:'HOT',s:87},{n:'Rare earth metals',t:'RISING',s:76}
+  ],
+  US:[
+    {n:'AI chips',t:'HOT',s:93},{n:'EV trucks',t:'HOT',s:86},
+    {n:'Heat pumps',t:'RISING',s:74},{n:'Lab-grown diamonds',t:'RISING',s:69}
+  ],
+  DE:[
+    {n:'Green hydrogen',t:'HOT',s:88},{n:'Wind turbine parts',t:'HOT',s:82},
+    {n:'EV components',t:'RISING',s:76},{n:'Industrial robots',t:'RISING',s:72}
+  ],
+  DEFAULT:[
+    {n:'Solar panels',t:'HOT',s:84},{n:'EV parts',t:'HOT',s:79},
+    {n:'Steel pipes',t:'RISING',s:66},{n:'Organic products',t:'WATCH',s:55}
+  ]
+};
+
+let LOC={scope:'country',country:'IN',state:'',city:'',label:'India',ct:'356'};
+let AI_CACHE={};
+
+function ts(t){
+  if(t==='HOT') return{bg:'#FCEBEB',tx:'#791F1F'};
+  if(t==='RISING') return{bg:'#FAEEDA',tx:'#633806'};
+  if(t==='WATCH') return{bg:'#EAF3DE',tx:'#27500A'};
+  return{bg:'#E6F1FB',tx:'#0C447C'};
+}
+
+function fn(n){
+  if(!n&&n!==0)return'—';
+  if(n>=1e9)return(n/1e9).toFixed(1)+'B';
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return(n/1e3).toFixed(1)+'K';
+  return Math.round(n).toString();
+}
+
+function setst(t){document.getElementById('stxt').textContent=t;}
+
+function log(m,t='inf'){
+  const el=document.getElementById('logarea');
+  el.style.display='block';
+  const d=document.createElement('div');
+  d.className=t; d.textContent='› '+m;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+
+function tog(id){
+  const b=document.getElementById(id+'-body');
+  const c=document.getElementById(id+'-chv');
+  if(!b)return;
+  const open=b.classList.contains('open');
+  if(open){b.style.display='none';b.classList.remove('open');c.classList.remove('open');}
+  else{b.style.display='block';b.classList.add('open');c.classList.add('open');}
+}
+
+function tkey(){
+  if(LOC.city&&TDATA[LOC.city])return LOC.city;
+  if(LOC.state&&TDATA[LOC.state])return LOC.state;
+  if(LOC.country&&TDATA[LOC.country])return LOC.country;
+  if(LOC.scope==='global')return'global';
+  return'DEFAULT';
+}
+
+function renderPills(){
+  const key=tkey();
+  const items=TDATA[key]||TDATA.DEFAULT;
+  const cur=document.getElementById('pinput').value.trim().toLowerCase();
+  document.getElementById('pills').innerHTML=items.map((item,i)=>{
+    const s=ts(item.t);
+    const active=item.n.toLowerCase()===cur||(i===0&&!cur);
+    return`<span class="pill${active?' on':''}" onclick="qs('${item.n}',this)">
+      <span class="ptag" style="background:${s.bg};color:${s.tx}">${item.t}</span>
+      ${item.n}
+      <span style="font-size:10px;color:#888780;margin-left:3px">${item.s}%</span>
+    </span>`;
+  }).join('');
+  document.getElementById('pmeta').textContent=
+    `${LOC.label} · ${new Date().toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('trend-loc').textContent=LOC.label;
+}
+
+function refreshPills(){
+  const items=TDATA[tkey()]||TDATA.DEFAULT;
+  items.forEach(i=>{i.s=Math.max(35,Math.min(97,i.s+Math.floor(Math.random()*7)-3));});
+  items.sort((a,b)=>b.s-a.s);
+  renderPills();
+}
+
+function qs(t,el){
+  document.querySelectorAll('#pills .pill').forEach(p=>p.classList.remove('on'));
+  if(el)el.classList.add('on');
+  document.getElementById('pinput').value=t;
+  run();
+}
+
+function populateCountries(){
+  const s=document.getElementById('country');
+  s.innerHTML=COUNTRIES.map(c=>`<option value="${c.c}" ${c.c==='IN'?'selected':''}>${c.n}</option>`).join('');
+}
+
+function populateStates(cc){
+  const s=document.getElementById('state');
+  const arr=STATES[cc]||STATES.DEFAULT;
+  s.innerHTML=`<option value="">All states</option>`+arr.map(x=>`<option value="${x}">${x}</option>`).join('');
+}
+
+function populateCities(st){
+  const s=document.getElementById('city');
+  const arr=CITIES[st]||CITIES.DEFAULT;
+  s.innerHTML=`<option value="">All cities</option>`+arr.map(x=>`<option value="${x}">${x}</option>`).join('');
+}
+
+function onScope(){
+  const sc=document.getElementById('scope').value;
+  document.getElementById('gcountry').style.display=sc==='global'?'none':'flex';
+  document.getElementById('gstate').style.display=(sc==='state'||sc==='city')?'flex':'none';
+  document.getElementById('gcity').style.display=sc==='city'?'flex':'none';
+  if(sc==='state'||sc==='city')populateStates(document.getElementById('country').value);
+  updateLoc();
+}
+
+function onCountry(){
+  const sc=document.getElementById('scope').value;
+  if(sc==='state'||sc==='city')populateStates(document.getElementById('country').value);
+  updateLoc();
+}
+
+function onState(){
+  const sc=document.getElementById('scope').value;
+  const sv=document.getElementById('state').value;
+  if(sc==='city'&&sv)populateCities(sv);
+  updateLoc();
+}
+
+function onCity(){updateLoc();}
+
+function buildLabel(){
+  const sc=document.getElementById('scope').value;
+  if(sc==='global')return'Global';
+  const cc=document.getElementById('country').value;
+  const co=COUNTRIES.find(x=>x.c===cc);
+  let l=co?co.n:'';
+  if(sc==='state'||sc==='city'){const sv=document.getElementById('state').value;if(sv)l=sv+', '+l;}
+  if(sc==='city'){const cv=document.getElementById('city').value;if(cv)l=cv+', '+l;}
+  return l||'India';
+}
+
+function updateLoc(){
+  const sc=document.getElementById('scope').value;
+  const cc=document.getElementById('country').value;
+  const co=COUNTRIES.find(x=>x.c===cc);
+  const sv=document.getElementById('state').value;
+  const cv=document.getElementById('city').value;
+  LOC={scope:sc,country:cc,state:sv||'',city:cv||'',label:buildLabel(),ct:co?co.ct:'356'};
+  document.getElementById('crumb').textContent=LOC.label;
+  document.getElementById('cfg-status').textContent='✓ '+LOC.label;
+  renderPills();
+  setst('Location: '+LOC.label);
+}
+
+function getHS(p){
+  const x=p.toLowerCase();
+  if(x.includes('solar'))return'8541';
+  if(x.includes('ev')||x.includes('charg'))return'8504';
+  if(x.includes('shampoo')||x.includes('hair'))return'3305';
+  if(x.includes('steel')||x.includes('pipe'))return'7304';
+  if(x.includes('brass')||x.includes('copper'))return'7407';
+  if(x.includes('aloe')||x.includes('cosmetic'))return'3304';
+  if(x.includes('linen')||x.includes('saree')||x.includes('fabric'))return'5309';
+  if(x.includes('wheat')||x.includes('grain'))return'1001';
+  if(x.includes('coffee'))return'0901';
+  if(x.includes('cotton'))return'5201';
+  if(x.includes('led')||x.includes('light'))return'8539';
+  if(x.includes('rubber'))return'4001';
+  if(x.includes('plastic'))return'3901';
+  if(x.includes('alumin'))return'7601';
+  if(x.includes('cement'))return'2523';
+  if(x.includes('pharma'))return'3004';
+  return'8471';
+}
+
+function simYT(p){
+  const seed=p.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const base=800000+(seed%12)*900000;
+  return['Oct','Nov','Dec','Jan','Feb','Mar'].map((m,i)=>({
+    month:m,
+    views:Math.round(base*(0.55+i*0.1)*(0.88+Math.random()*0.24))
+  }));
+}
+
+function simTrade(p){
+  const seed=p.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const g=12+(seed%75);
+  const base=400000000+(seed*700000);
+  return{growth:g,y2024:Math.round(base*(1+g/100)),y2023:base,real:false};
+}
+
+function calcProb(ytG,trG,ytV){
+  let s=0;
+  if(ytV>30000000)s+=25;else if(ytV>10000000)s+=16;else if(ytV>2000000)s+=8;else if(ytV>500000)s+=4;
+  if(ytG>50)s+=24;else if(ytG>20)s+=15;else if(ytG>5)s+=8;
+  if(trG>100)s+=28;else if(trG>50)s+=19;else if(trG>20)s+=11;else if(trG>0)s+=5;
+  s+=6+Math.floor(Math.random()*8);
+  return Math.min(s,97);
+}
+
+function tagFor(p){
+  if(p>=75)return{l:'HOT',bg:'#FCEBEB',tx:'#791F1F'};
+  if(p>=55)return{l:'RISING',bg:'#FAEEDA',tx:'#633806'};
+  if(p>=35)return{l:'BUILDING',bg:'#EAF3DE',tx:'#27500A'};
+  return{l:'STEADY',bg:'#E6F1FB',tx:'#0C447C'};
+}
+
+function riskCol(r){
+  if(r==='Low')return{bg:'#EAF3DE',tx:'#27500A'};
+  if(r==='High')return{bg:'#FCEBEB',tx:'#791F1F'};
+  return{bg:'#FAEEDA',tx:'#633806'};
+}
+
+async function callAI(prompt){
+  const key=document.getElementById('aik').value.trim();
+  if(!key)return null;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const d=await r.json();
+    const txt=d.content?.[0]?.text||'';
+    return JSON.parse(txt.replace(/```json|```/g,'').trim());
+  }catch(e){return null;}
+}
+
+async function getAIProductData(product,location){
+  const cacheKey=product.toLowerCase()+'|'+location;
+  if(AI_CACHE[cacheKey])return AI_CACHE[cacheKey];
+
+  const key=document.getElementById('aik').value.trim();
+  if(!key){
+    log('No Claude AI key — using fallback intelligence','er');
+    return generateFallback(product);
+  }
+
+  log(`AI generating product intelligence for "${product}"...`,'inf');
+  const prompt=`For the product "${product}" in the context of "${location}", return ONLY a valid JSON object (no markdown, no extra text) with exactly this structure:
+{"category":"Industrial/FMCG/Fashion/Textile/Pharma/Energy/Agriculture/Technology/Automotive","hsCode":"4-6 digit HS code","oneLiner":"why demand rising now max 15 words","oppScore":0-100,"rawMaterials":[{"name":"string","pct":number,"priceTrend":"+X%","topProducers":[{"flag":"🇨🇳","country":"China","share":number}]}],"exporters":[{"flag":"🇨🇳","country":"China","share":number,"value":"$XB"}],"companies":[{"name":"string","ticker":"string","exchange":"NSE/NYSE/etc","country":"string","mktCap":"$XB","investScore":number,"risk":"Low/Medium/High","oneLiner":"8 word role description","thesis":"12 word investment reason"}],"thesis":"2 sentence investment thesis. Include key risk.","scRawMat":number,"scProduction":number,"scShipping":number,"scMarketing":number}
+Provide 3-4 rawMaterials, 4-5 exporters (biggest first), 4-5 companies (include India-listed where relevant). All numbers realistic.`;
+
+  const data=await callAI(prompt);
+  if(data){
+    AI_CACHE[cacheKey]=data;
+    log(`AI intelligence loaded for "${product}"`,'ok');
+    return data;
+  }
+  log('AI parsing failed — fallback','er');
+  return generateFallback(product);
+}
+
+function generateFallback(product){
+  const seed=product.toLowerCase().split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  return{
+    category:'General',
+    hsCode:getHS(product),
+    oneLiner:'Demand rising based on available trend signals',
+    oppScore:45+seed%35,
+    rawMaterials:[
+      {name:'Primary raw material',pct:40,priceTrend:'+'+(10+seed%18)+'%',
+       topProducers:[{flag:'🇨🇳',country:'China',share:35+seed%15},{flag:'🇮🇳',country:'India',share:10},{flag:'🇺🇸',country:'USA',share:9}]},
+      {name:'Secondary input',pct:28,priceTrend:'+'+(6+seed%12)+'%',
+       topProducers:[{flag:'🇩🇪',country:'Germany',share:18},{flag:'🇧🇷',country:'Brazil',share:12},{flag:'🇯🇵',country:'Japan',share:9}]},
+      {name:'Packaging / processing',pct:15,priceTrend:'+'+(4+seed%8)+'%',
+       topProducers:[{flag:'🇨🇳',country:'China',share:40},{flag:'🇩🇪',country:'Germany',share:12},{flag:'🇯🇵',country:'Japan',share:8}]}
+    ],
+    exporters:[
+      {flag:'🇨🇳',country:'China',share:30+seed%20,value:'Est. largest'},
+      {flag:'🇩🇪',country:'Germany',share:10+seed%8,value:'Major'},
+      {flag:'🇺🇸',country:'USA',share:8+seed%8,value:'Major'},
+      {flag:'🇯🇵',country:'Japan',share:6+seed%5,value:'Key'},
+      {flag:'🇮🇳',country:'India',share:4+seed%6,value:'Growing'}
+    ],
+    companies:[{
+      name:'Search a specific product name',ticker:'—',exchange:'—',country:'—',
+      mktCap:'—',investScore:55,risk:'Unknown',
+      oneLiner:'Type exact product for real company data',
+      thesis:'Claude AI generates precise companies for specific product names'
+    }],
+    thesis:`${product} demand is trending upward based on available signals for ${LOC.label}. Add your Claude AI key (console.anthropic.com) for precise raw materials, company data, and investment analysis. Key risk: supply chain concentration and commodity price volatility.`,
+    scRawMat:10+seed%15,scProduction:6+seed%9,scShipping:8+seed%9,scMarketing:4+seed%6
+  };
+}
+
+async function fetchYT(p,key){
+  try{
+    log(`YouTube: "${p} trend ${LOC.label}"...`,'inf');
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(p+' trend '+LOC.label+' 2026')}&type=video&maxResults=10&key=${key}`);
+    if(!r.ok)throw new Error('Status '+r.status);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error.message);
+    const ids=d.items.map(i=>i.id.videoId).join(',');
+    const r2=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${ids}&key=${key}`);
+    const d2=await r2.json();
+    const total=d2.items.reduce((s,v)=>s+(parseInt(v.statistics?.viewCount||0)),0);
+    log(`YouTube: ${fn(total)} views (top 10 videos)`,'ok');
+    return{totalViews:total,real:true};
+  }catch(e){
+    log(`YouTube: ${e.message} — simulated`,'er');
+    return{totalViews:null,real:false};
+  }
+}
+
+async function fetchTrade(hs,ctk,ctId){
+  try{
+    log(`Comtrade: HS ${hs}, country ${ctId}...`,'inf');
+    const r=await fetch(
+      `https://comtradeapi.un.org/data/v1/get/C/A/HS?reporterCode=${ctId}&flowCode=M&cmdCode=${hs}&period=2024,2023&subscription-key=${ctk}`,
+      {headers:{'Ocp-Apim-Subscription-Key':ctk}}
+    );
+    if(!r.ok)throw new Error('Status '+r.status);
+    const d=await r.json();
+    const rows=d.data||[];
+    const y24=rows.find(r=>r.period==2024)?.primaryValue||null;
+    const y23=rows.find(r=>r.period==2023)?.primaryValue||null;
+    if(y24&&y23){
+      const g=Math.round(((y24-y23)/y23)*100);
+      log(`Comtrade: ${g}% YoY growth`,'ok');
+      return{growth:g,y2024:y24,y2023:y23,real:true};
+    }
+    throw new Error('No data');
+  }catch(e){
+    log(`Comtrade: ${e.message} — estimated`,'er');
+    return simTrade(document.getElementById('pinput').value);
+  }
+}
+
+async function run(){
+  const product=document.getElementById('pinput').value.trim();
+  if(!product)return;
+  const ytk=document.getElementById('ytk').value.trim();
+  const ctk=document.getElementById('ctk').value.trim();
+
+  document.getElementById('logarea').innerHTML='';
+  document.getElementById('logarea').style.display='block';
+  document.getElementById('results').style.display='none';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('sbtn').disabled=true;
+  setst('Analysing "'+product+'" for '+LOC.label+'...');
+  log(`Product: "${product}" | Location: ${LOC.label}`,'inf');
+
+  const [aiData, ytData, trData]=await Promise.all([
+    getAIProductData(product,LOC.label),
+    ytk?fetchYT(product,ytk):Promise.resolve({totalViews:null,real:false}),
+    ctk?fetchTrade(getHS(product),ctk,LOC.ct):(()=>{
+      const seed=product.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+      const g=14+(seed%70);const base=500000000+(seed*600000);
+      return Promise.resolve({growth:g,y2024:Math.round(base*(1+g/100)),y2023:base,real:false});
+    })()
+  ]);
+
+  if(!ytk)log('No YouTube key — simulated (get free key at console.cloud.google.com)','er');
+  if(!ctk)log('No Comtrade key — estimated trade data','er');
+
+  const ytM=simYT(product);
+  const latYT=ytData.real?ytData.totalViews:ytM[ytM.length-1].views;
+  const prevYT=ytM[ytM.length-2].views;
+  const ytG=Math.round(((latYT-prevYT)/prevYT)*100);
+  const tg=trData.growth;
+  const prob=calcProb(ytG,tg,latYT);
+  const tag=tagFor(prob);
+
+  log(`Probability: ${prob}% (${tag.l})`,'ok');
+  log('Rendering dashboard...','ok');
+
+  // Metrics
+  document.getElementById('ov-title').textContent=`${product} — ${LOC.label}`;
+  const ovtag=document.getElementById('ov-tag');
+  ovtag.textContent=tag.l; ovtag.style.background=tag.bg; ovtag.style.color=tag.tx;
+
+  document.getElementById('metrics').innerHTML=[
+    {l:'Trend score',v:Math.min(Math.round(prob*0.88+ytG*0.12),100),d:'combined index',dc:'#3B6D11'},
+    {l:'YouTube views',v:fn(latYT),d:(ytG>0?'+':'')+ytG+'% MoM',dc:ytG>0?'#3B6D11':'#A32D2D'},
+    {l:'Import Δ',v:(tg>0?'+':'')+tg+'%',d:'YoY '+(trData.real?'live':'est.'),dc:tg>0?'#3B6D11':'#A32D2D'},
+    {l:'Opportunity',v:(aiData?.oppScore||55)+'/100',d:aiData?.category||'General',dc:'#185FA5'}
+  ].map(m=>`<div class="mc">
+    <div class="mc-l">${m.l}</div>
+    <div class="mc-v">${m.v}</div>
+    <div class="mc-d" style="color:${m.dc}">${m.d}</div>
+  </div>`).join('');
+
+  document.getElementById('pbig').textContent=prob+'%';
+  document.getElementById('one-liner').textContent=aiData?.oneLiner||'Demand trend detected based on signals.';
+
+  // Signals
+  document.getElementById('sig-sum').textContent=`YT: ${fn(latYT)} · Trade: ${tg>0?'+':''}${tg}%`;
+  document.getElementById('sigs').innerHTML=[
+    {n:'YouTube views',note:ytData.real?'Live YouTube API v3':'Simulated — add key above',s:Math.min(Math.round(latYT/800000),100),v:fn(latYT),c:'#185FA5'},
+    {n:'YoY view growth',note:'Month-on-month Δ',s:Math.min(ytG+50,100),v:(ytG>0?'+':'')+ytG+'%',c:'#185FA5'},
+    {n:'Import growth',note:trData.real?'Live UN Comtrade':'Estimated',s:Math.min(tg/2+30,100),v:(tg>0?'+':'')+tg+'%',c:'#3B6D11'},
+    {n:'Trade value',note:`HS code: ${aiData?.hsCode||getHS(product)}`,s:Math.min(Math.round((trData.y2024||5e8)/5e7),100)||55,v:'$'+fn(trData.y2024||0),c:'#3B6D11'},
+  ].map(s=>`<div class="row">
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:500;color:#1a1a2e">${s.n}</div>
+      <div style="font-size:10px;color:#888780">${s.note}</div>
+      <div class="bw"><div class="bf" style="width:${Math.max(s.s,4)}%;background:${s.c}"></div></div>
+    </div>
+    <div style="font-size:13px;font-weight:500;color:${s.c};min-width:50px;text-align:right">${s.v}</div>
+  </div>`).join('');
+
+  // Chart
+  if(ytCh){ytCh.destroy();ytCh=null;}
+  const cv=ytM.map((m,i)=>i===ytM.length-1&&ytData.real?ytData.totalViews:m.views);
+  ytCh=new Chart(document.getElementById('ytc').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:ytM.map(m=>m.month),
+      datasets:[{label:'Views',data:cv,
+        backgroundColor:cv.map((_,i)=>i===cv.length-1?'#185FA5':'#B5D4F4'),
+        borderRadius:3,borderSkipped:false}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#888780',font:{size:10}}},
+        y:{grid:{color:'rgba(136,135,128,0.12)'},ticks:{color:'#888780',font:{size:10},callback:v=>fn(v)}}
+      }
+    }
+  });
+  document.getElementById('cnote').textContent=
+    (ytData.real?'Live YouTube API v3':'Simulated trend')+` for "${product}" · ${LOC.label}`;
+
+  // Raw materials
+  const rms=aiData?.rawMaterials||[];
+  document.getElementById('rm-sum').textContent=rms.length?rms.slice(0,2).map(r=>r.name).join(', '):'Add AI key for data';
+  document.getElementById('rmlist').innerHTML=rms.map(rm=>`
+    <div style="padding:8px 10px;border-radius:8px;border:0.5px solid #e8e5df;margin-bottom:7px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <div style="font-size:12px;font-weight:500;color:#1a1a2e">${rm.name}</div>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <span style="font-size:11px;font-weight:500;color:#633806">${rm.pct}% of cost</span>
+          <span class="tag" style="background:${rm.priceTrend?.startsWith('-')?'#EAF3DE':'#FCEBEB'};
+            color:${rm.priceTrend?.startsWith('-')?'#27500A':'#791F1F'}">${rm.priceTrend||'—'}</span>
+        </div>
+      </div>
+      ${(rm.topProducers||[]).map((p,i)=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <span style="font-size:13px;width:18px;text-align:center">${p.flag||'🌐'}</span>
+          <span style="font-size:11px;color:#5F5E5A;min-width:65px">${p.country}</span>
+          <div style="flex:1;height:4px;background:#f1efeb;border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${p.share||20}%;background:${i===0?'#185FA5':'#B5D4F4'};border-radius:2px"></div>
+          </div>
+          <span style="font-size:11px;font-weight:500;color:#0C447C;min-width:28px;text-align:right">${p.share||'?'}%</span>
+        </div>`).join('')}
+    </div>`).join('');
+
+  // Exporters
+  const exps=aiData?.exporters||[];
+  document.getElementById('exp-sum').textContent=exps.length?`#1 ${exps[0].flag||''} ${exps[0].country} ${exps[0].share}%`:'—';
+  document.getElementById('explist').innerHTML=exps.map((e,i)=>`
+    <div class="exp-row">
+      <span style="font-size:13px;width:18px;text-align:center">${e.flag||'🌐'}</span>
+      <span style="font-size:12px;color:#1a1a2e;flex:0 0 78px">${e.country}</span>
+      <div style="flex:1;height:5px;background:#f1efeb;border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${e.share||20}%;background:${i===0?'#185FA5':'#B5D4F4'};border-radius:3px"></div>
+      </div>
+      <span style="font-size:11px;font-weight:500;color:#0C447C;min-width:28px;text-align:right">${e.share||'?'}%</span>
+    </div>`).join('');
+
+  const allProd=[...(new Map(
+    (aiData?.rawMaterials||[])
+      .flatMap(r=>(r.topProducers||[]).map(p=>({...p,rm:r.name})))
+      .map(p=>[p.country,p])
+  ).values())].slice(0,5);
+
+  document.getElementById('prodlist').innerHTML=allProd.map((p,i)=>`
+    <div class="exp-row">
+      <span style="font-size:13px;width:18px;text-align:center">${p.flag||'🌐'}</span>
+      <span style="font-size:12px;color:#1a1a2e;flex:1">${p.country}</span>
+      <div style="flex:0 0 60px;height:5px;background:#f1efeb;border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${p.share||20}%;background:${i===0?'#3B6D11':'#C0DD97'};border-radius:3px"></div>
+      </div>
+      <span style="font-size:11px;font-weight:500;color:#27500A;min-width:28px;text-align:right">${p.share||'?'}%</span>
+    </div>`).join('')||
+    '<div style="font-size:11px;color:#888780;padding:8px 0">Add AI key for raw material producer data</div>';
+
+  // Supply chain
+  const sc={
+    raw:aiData?.scRawMat||Math.round(tg*0.28)||10,
+    prod:aiData?.scProduction||7,
+    ship:aiData?.scShipping||9,
+    mktg:aiData?.scMarketing||5
+  };
+  const scTot=sc.raw+sc.prod+sc.ship+sc.mktg;
+  document.getElementById('sc-sum').textContent='+'+scTot+'% total';
+  document.getElementById('scsteps').innerHTML=[
+    {icon:'⛏',n:'Raw materials',d:'Import cost trend · '+LOC.label,p:sc.raw,bg:'#E6F1FB'},
+    {icon:'🏭',n:'Production',d:'Labour + assembly',p:sc.prod,bg:'#EAF3DE'},
+    {icon:'🚢',n:'Shipping',d:LOC.label+' freight premium',p:sc.ship,bg:'#FAEEDA'},
+    {icon:'📣',n:'Marketing',d:'Ad cost on demand surge',p:sc.mktg,bg:'#FAEEDA'},
+  ].map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:5px;background:${s.bg}">
+      <span style="font-size:14px;width:24px;text-align:center">${s.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:#1a1a2e">${s.n}</div>
+        <div style="font-size:10px;color:#888780">${s.d}</div>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#633806">+${s.p}%</div>
+    </div>`).join('')+
+    `<div style="display:flex;justify-content:space-between;padding:7px 10px 0;border-top:0.5px solid #e8e5df;margin-top:2px;">
+      <div style="font-size:11px;color:#5F5E5A">Total if demand explodes</div>
+      <div style="font-size:15px;font-weight:500;color:#1a1a2e">+${scTot}%</div>
+    </div>`;
+
+  // Investment
+  const cos=aiData?.companies||[];
+  document.getElementById('inv-sum').textContent=`Score: ${aiData?.oppScore||55}/100 · ${cos.length} companies`;
+  document.getElementById('colist').innerHTML=cos.map(co=>{
+    const rc=riskCol(co.risk||'Medium');
+    const sc2=Math.round(co.investScore||55);
+    const bc=sc2>=75?'#3B6D11':sc2>=55?'#854F0B':'#A32D2D';
+    return`<div class="co-row">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:#1a1a2e">${co.name}</div>
+          <div style="font-size:10px;color:#888780">${co.oneLiner}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+          <div style="font-size:10px;font-family:monospace;background:#E6F1FB;color:#0C447C;padding:2px 7px;border-radius:4px;display:inline-block">${co.ticker}</div>
+          <div style="font-size:10px;color:#888780;margin-top:2px">${co.mktCap}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <span class="tag" style="background:${rc.bg};color:${rc.tx}">Risk: ${co.risk}</span>
+        <span style="font-size:11px;color:#888780">Score: <strong style="color:${bc}">${sc2}/100</strong></span>
+        <span style="font-size:11px;color:#5F5E5A">${co.thesis}</span>
+      </div>
+      <div style="height:3px;background:#f1efeb;border-radius:2px;margin-top:5px;overflow:hidden">
+        <div style="height:100%;width:${sc2}%;background:${bc};border-radius:2px"></div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('inv-thesis').textContent=
+    aiData?.thesis||'Add Claude AI key for investment thesis.';
+
+  // Show results, collapse all except overview
+  document.getElementById('results').style.display='block';
+  ['overview'].forEach(id=>{
+    const b=document.getElementById(id+'-body');
+    const c=document.getElementById(id+'-chv');
+    b.style.display='block'; b.classList.add('open'); c.classList.add('open');
+  });
+  ['signals','rawmat','exporters','supplychain','invest'].forEach(id=>{
+    const b=document.getElementById(id+'-body');
+    const c=document.getElementById(id+'-chv');
+    if(b){b.style.display='none';b.classList.remove('open');c.classList.remove('open');}
+  });
+
+  document.getElementById('sbtn').disabled=false;
+  setst(`${product} · ${LOC.label} · ${new Date().toLocaleTimeString()}`);
+}
+
+// Init
+populateCountries();
+updateLoc();
+['cfg','trends'].forEach(id=>{
+  const b=document.getElementById(id+'-body');
+  if(b){b.style.display='block';b.classList.add('open');}
+});
+setTimeout(()=>{
+  document.getElementById('pinput').value='solar panels';
+  run();
+},500);
+</script>
+</body>
+</html>
