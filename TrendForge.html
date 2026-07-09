@@ -113,8 +113,7 @@ input:checked+.slider:before{transform:translateX(16px);}
   <button class="btn" id="sbtn" onclick="Controller.run()">Analyse</button>
 </div>
 <div style="display:flex;gap:8px;margin-bottom:10px;">
-  <input class="inp" id="location" placeholder="Location (e.g. India)" value="India" style="flex:1;">
-  <input class="inp" id="countryCode" placeholder="Country numeric code (e.g. 356)" value="356" style="width:170px;">
+  <select class="inp" id="country" style="flex:1;"></select>
 </div>
 
 <div id="logarea" class="log" style="display:none;"></div>
@@ -231,6 +230,24 @@ const State = {
   simulationForced: false,
   lastResult: null,
 };
+
+// Name and UN numeric code are stored together so the displayed label and
+// the code used in the actual Comtrade API call can never drift apart —
+// this replaced two separate free-text fields that could get out of sync.
+const COUNTRIES = [
+  { n: 'India', ct: '356' }, { n: 'China', ct: '156' }, { n: 'United States', ct: '842' },
+  { n: 'Germany', ct: '276' }, { n: 'United Kingdom', ct: '826' }, { n: 'Japan', ct: '392' },
+  { n: 'Brazil', ct: '076' }, { n: 'Australia', ct: '036' }, { n: 'South Africa', ct: '710' },
+  { n: 'UAE', ct: '784' }, { n: 'Singapore', ct: '702' }, { n: 'France', ct: '251' },
+  { n: 'Italy', ct: '380' }, { n: 'Canada', ct: '124' }, { n: 'Mexico', ct: '484' },
+  { n: 'South Korea', ct: '410' }, { n: 'Indonesia', ct: '360' }, { n: 'Thailand', ct: '764' },
+  { n: 'Saudi Arabia', ct: '682' }, { n: 'Nigeria', ct: '566' },
+];
+
+function populateCountries() {
+  const sel = document.getElementById('country');
+  sel.innerHTML = COUNTRIES.map(c => `<option value="${c.ct}" ${c.n === 'India' ? 'selected' : ''}>${c.n}</option>`).join('');
+}
 
 const ApiService = {
   base() {
@@ -507,8 +524,9 @@ const DashboardRenderer = {
 const Controller = {
   async run() {
     const product = document.getElementById('pinput').value.trim();
-    const location = document.getElementById('location').value.trim() || 'Global';
-    const countryCode = document.getElementById('countryCode').value.trim() || '356';
+    const countrySel = document.getElementById('country');
+    const location = countrySel.options[countrySel.selectedIndex]?.text || 'Global';
+    const countryCode = countrySel.value || '356';
     if (!product) return;
 
     DashboardRenderer.clearLog();
@@ -599,6 +617,8 @@ function tog(id) {
 function onSimToggle() {
   State.simulationForced = document.getElementById('simToggle').checked;
 }
+
+populateCountries();
 </script>
 </body>
 </html>
