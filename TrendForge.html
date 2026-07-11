@@ -193,6 +193,16 @@ input:checked+.slider:before{transform:translateX(16px);}
 </div>
 
 <div class="card">
+  <div class="card-head" onclick="tog('testsum'); TestingSummary.render();">
+    <div class="card-title">📊 Testing summary <span style="font-size:10px;font-weight:400;color:var(--ink-faint);">this browser only</span></div>
+    <div class="card-meta"><span class="chv" id="testsum-chv">▾</span></div>
+  </div>
+  <div class="card-body" id="testsum-body">
+    <div id="testsumContent" style="margin-top:4px;"></div>
+  </div>
+</div>
+
+<div class="card">
   <div class="card-head" onclick="tog('pdb')">
     <div class="card-title">🗂 Product database <span style="font-size:10px;font-weight:400;color:var(--ink-faint);">click any to load</span></div>
     <div class="card-meta"><span class="chv" id="pdb-chv">▾</span></div>
@@ -398,36 +408,57 @@ input:checked+.slider:before{transform:translateX(16px);}
 <script>
 /* ============================= STORAGE MANAGER =============================
    The artifact runtime provides window.storage (get/set/list) for persistence
-   inside Claude.ai. Plain browser localStorage/sessionStorage are NOT used
-   here because they are unsupported in the artifact sandbox this file is
-   designed to run in. If window.storage is unavailable (e.g. this file is
-   opened directly as a standalone .html outside Claude.ai), we fall back to
-   an in-memory store for the current session only — "recent analyses" simply
-   won't survive a page reload in that context. Swap in real localStorage
-   yourself if you deploy this outside Claude.ai and want cross-session saves.
+   inside Claude.ai. When this file is deployed standalone (e.g. on Vercel, as
+   with this app), window.storage does not exist, so we fall back to real
+   browser localStorage instead — that's safe and correct once you're outside
+   the Claude.ai artifact sandbox. If localStorage is also unavailable
+   (privacy mode, cookies disabled), we fall back further to an in-memory
+   store for the current tab only.
+   NOTE: localStorage is per-browser/per-device. If five friends test this on
+   their own phones, each of them gets their own private "recent analyses"
+   history — there's no shared, central log of everyone's tests unless you
+   add a small server-side logging endpoint (ask if you want that built).
 ============================================================================= */
 const StorageManager = {
-  hasBackend: typeof window.storage !== 'undefined',
+  backend: (typeof window.storage !== 'undefined') ? 'artifact'
+    : (() => { try { localStorage.setItem('__tf_test__', '1'); localStorage.removeItem('__tf_test__'); return 'local'; } catch (e) { return 'memory'; } })(),
+  hasBackend: true, // always true now — 'memory' is the only truly non-persistent case
   _mem: {},
   async get(key) {
-    if (this.hasBackend) {
+    if (this.backend === 'artifact') {
       try { const r = await window.storage.get(key, false); return r ? r.value : null; }
       catch (e) { return null; }
+    }
+    if (this.backend === 'local') {
+      try { return localStorage.getItem('tf:' + key); } catch (e) { return null; }
     }
     return Object.prototype.hasOwnProperty.call(this._mem, key) ? this._mem[key] : null;
   },
   async set(key, value) {
-    if (this.hasBackend) {
+    if (this.backend === 'artifact') {
       try { await window.storage.set(key, value, false); return true; }
       catch (e) { return false; }
+    }
+    if (this.backend === 'local') {
+      try { localStorage.setItem('tf:' + key, value); return true; } catch (e) { return false; }
     }
     this._mem[key] = value;
     return true;
   },
   async list(prefix) {
-    if (this.hasBackend) {
+    if (this.backend === 'artifact') {
       try { const r = await window.storage.list(prefix, false); return r ? r.keys : []; }
       catch (e) { return []; }
+    }
+    if (this.backend === 'local') {
+      try {
+        const out = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('tf:') && (!prefix || k.slice(3).startsWith(prefix))) out.push(k.slice(3));
+        }
+        return out;
+      } catch (e) { return []; }
     }
     return Object.keys(this._mem).filter(k => !prefix || k.startsWith(prefix));
   },
@@ -1132,13 +1163,13 @@ const RecentAnalyses = {
     const key = `analysis:${Date.now()}`;
     const light = {
       product: payload.product, location: payload.location, prob: payload.opp.total,
-      tag: payload.tag, ts: Date.now(),
+      tag: payload.tag, ts: Date.now(), sourceStatus: payload.sourceStatus || {},
     };
     await StorageManager.set(key, JSON.stringify({ light, payload }));
     let idx = await StorageManager.get('recent:index');
     idx = idx ? JSON.parse(idx) : [];
     idx.unshift(key);
-    idx = idx.slice(0, 8);
+    idx = idx.slice(0, 50);
     await StorageManager.set('recent:index', JSON.stringify(idx));
     this.render();
   },
@@ -1163,6 +1194,63 @@ const RecentAnalyses = {
     const { payload } = JSON.parse(raw);
     document.getElementById('pinput').value = payload.product;
     Controller.renderFromPayload(payload);
+  },
+};
+
+/* ============================= TESTING SUMMARY ============================= */
+// Reads this browser's own analysis history and rolls it up into the kind of
+// end-of-day numbers you'd want when checking "is this actually working?":
+// how many runs, how often each data source came back live vs simulated vs
+// unavailable, average opportunity score, and which products got tested most.
+// This is PER BROWSER — if friends test on their own devices, each of them
+// has their own local history; there's no automatic cross-device rollup.
+const TestingSummary = {
+  async render() {
+    const el = document.getElementById('testsumContent');
+    if (!el) return;
+    let idx = await StorageManager.get('recent:index');
+    idx = idx ? JSON.parse(idx) : [];
+    const rows = [];
+    for (const key of idx) {
+      const raw = await StorageManager.get(key);
+      if (!raw) continue;
+      try { rows.push(JSON.parse(raw).light); } catch (e) {}
+    }
+    if (!rows.length) {
+      el.innerHTML = '<div style="font-size:11px;color:var(--ink-faint);padding:6px 0;">No analyses run in this browser yet — run a few, then reopen this panel.</div>';
+      return;
+    }
+
+    const total = rows.length;
+    const avgScore = Math.round(rows.reduce((s, r) => s + (r.prob || 0), 0) / total);
+    const c = { yt: { live: 0, simulated: 0, unavailable: 0 }, trade: { live: 0, simulated: 0, unavailable: 0 }, aiLoaded: 0 };
+    rows.forEach(r => {
+      const s = r.sourceStatus || {};
+      if (s.yt && c.yt[s.yt] !== undefined) c.yt[s.yt]++; else c.yt.unavailable++;
+      if (s.trade && c.trade[s.trade] !== undefined) c.trade[s.trade]++; else c.trade.unavailable++;
+      if (s.ai === 'loaded') c.aiLoaded++;
+    });
+    const productCounts = {};
+    rows.forEach(r => { productCounts[r.product] = (productCounts[r.product] || 0) + 1; });
+    const topProducts = Object.entries(productCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const oldest = rows[rows.length - 1], newest = rows[0];
+
+    el.innerHTML = `
+      <div class="g3" style="margin-bottom:10px;">
+        <div class="mc"><div class="mc-l">Total analyses run</div><div class="mc-v">${total}</div></div>
+        <div class="mc"><div class="mc-l">Avg. opportunity score</div><div class="mc-v">${avgScore}%</div></div>
+        <div class="mc"><div class="mc-l">AI enrichment success</div><div class="mc-v">${Math.round((c.aiLoaded / total) * 100)}%</div></div>
+      </div>
+      <div style="font-size:10px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Data source reliability</div>
+      <div class="row"><div style="flex:1;font-size:12px;">YouTube</div><div style="font-size:11px;color:var(--ink-soft);"><span class="live-badge">${c.yt.live} live</span> <span class="sim-badge">${c.yt.simulated} sim</span> <span style="color:var(--ink-faint)">${c.yt.unavailable} unavail.</span></div></div>
+      <div class="row"><div style="flex:1;font-size:12px;">Comtrade</div><div style="font-size:11px;color:var(--ink-soft);"><span class="live-badge">${c.trade.live} live</span> <span class="sim-badge">${c.trade.simulated} sim</span> <span style="color:var(--ink-faint)">${c.trade.unavailable} unavail.</span></div></div>
+      <div style="font-size:10px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px;">Most tested products (this browser)</div>
+      <div class="chips">${topProducts.map(([p, n]) => `<span class="chip">${p} × ${n}</span>`).join('') || '—'}</div>
+      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px;line-height:1.5;">
+        Range: ${new Date(oldest.ts).toLocaleString()} → ${new Date(newest.ts).toLocaleString()}.
+        This only reflects tests run in <em>this</em> browser. If you want a combined view across everyone testing it,
+        that needs a small server-side logging endpoint — ask if you'd like that added.
+      </div>`;
   },
 };
 
@@ -1351,10 +1439,16 @@ const Controller = {
     State.lastResult = { totalScPct };
     Controller.recalcProfitability();
 
+    const sourceStatus = {
+      yt: !yt.available ? 'unavailable' : (yt.simulated ? 'simulated' : 'live'),
+      trade: !trade.available ? 'unavailable' : (trade.simulated ? 'simulated' : 'live'),
+      ai: ai ? 'loaded' : 'unavailable',
+    };
+
     const payload = {
       product, location, opp, tag, oneLiner: ai?.oneLiner || '',
       metricsFlat: metricsData, risks, exporters: ai?.exporters || [], thesis: ai?.thesis || '',
-      ytSeries, ytModeled, tradeSeries, tradeModeled, pm,
+      ytSeries, ytModeled, tradeSeries, tradeModeled, pm, sourceStatus,
     };
     State.currentPayload = payload;
 
@@ -1405,9 +1499,12 @@ async function boot() {
   populateCountries();
   ProductDB.render('All');
   await ThemeManager.init();
-  document.getElementById('storageNote').textContent = StorageManager.hasBackend
-    ? 'Saved in this browser session/account via app storage.'
-    : 'No persistent storage detected — recent analyses will be kept for this page load only.';
+  const notes = {
+    artifact: 'Saved via Claude.ai app storage for this account.',
+    local: 'Saved in this browser (localStorage) — private to this device, persists across visits.',
+    memory: 'No persistent storage available in this browser — history will be kept for this page load only.',
+  };
+  document.getElementById('storageNote').textContent = notes[StorageManager.backend] || '';
   await RecentAnalyses.render();
 }
 boot();
