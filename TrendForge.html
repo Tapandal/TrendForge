@@ -773,7 +773,21 @@ const ChartManager = {
     // Re-render charts currently on screen so colors track the new theme.
     if (State.currentPayload) DashboardRenderer.renderAllCharts(State.currentPayload);
   },
+  _unavailable(canvasId) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    const wrap = ctx.parentElement;
+    if (wrap && !wrap.querySelector('.chart-fallback')) {
+      const msg = document.createElement('div');
+      msg.className = 'chart-fallback';
+      msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);text-align:center;padding:10px;';
+      msg.textContent = 'Chart.js failed to load from the CDN — check your network/ad-blocker. Data itself loaded fine.';
+      wrap.style.position = 'relative';
+      wrap.appendChild(msg);
+    }
+  },
   line(canvasId, labels, data, color, label, opts) {
+    if (typeof Chart === 'undefined') { this._unavailable(canvasId); return; }
     opts = opts || {};
     this.destroy(canvasId);
     const ctx = document.getElementById(canvasId);
@@ -793,6 +807,7 @@ const ChartManager = {
     });
   },
   bar(canvasId, labels, data, color) {
+    if (typeof Chart === 'undefined') { this._unavailable(canvasId); return; }
     this.destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
@@ -811,6 +826,7 @@ const ChartManager = {
     });
   },
   radar(canvasId, labels, data, color) {
+    if (typeof Chart === 'undefined') { this._unavailable(canvasId); return; }
     this.destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
@@ -1019,7 +1035,18 @@ const DashboardRenderer = {
     document.getElementById('empty').style.display = 'none';
     const b = document.getElementById('overview-body'); const c = document.getElementById('overview-chv');
     b.classList.add('open'); b.style.display = 'block'; c.classList.add('open');
-    document.getElementById('pdfBtn').disabled = false;
+  },
+
+  showAiLoading() {
+    const skel = '<div class="skel" style="height:16px;border-radius:6px;margin-bottom:6px;"></div><div class="skel" style="height:16px;width:70%;border-radius:6px;"></div>';
+    document.getElementById('rm-sum').textContent = 'generating…';
+    document.getElementById('rmflows').innerHTML = skel;
+    document.getElementById('exp-sum').textContent = 'generating…';
+    document.getElementById('explist').innerHTML = skel;
+    document.getElementById('inv-sum').textContent = 'generating…';
+    document.getElementById('colist').innerHTML = skel;
+    document.getElementById('inv-thesis').innerHTML = '<span class="skel" style="display:inline-block;height:13px;width:90%;border-radius:6px;"></span>';
+    document.getElementById('pm-sum').textContent = 'generating…';
   },
 
   renderAllCharts(payload) {
@@ -1141,19 +1168,33 @@ const Controller = {
     DashboardRenderer.setStatus(`Analysing "${product}"...`);
     DashboardRenderer.log(`Product: "${product}" | Location: ${location}`);
 
+    try {
+      await this._runInner(product, location, countryCode);
+    } catch (err) {
+      DashboardRenderer.log(`Error: ${err.message || err}`, 'er');
+      DashboardRenderer.setStatus('Failed — see log');
+      console.error('TrendForge run() failed:', err);
+    } finally {
+      document.getElementById('sbtn').disabled = false;
+    }
+  },
+
+  async _runInner(product, location, countryCode) {
     const manualHs = document.getElementById('hsOverride').value.trim();
     const hs = manualHs ? { code: manualHs, matched: true, manual: true } : Calc.getHS(product);
     if (manualHs) DashboardRenderer.log(`HS code manually set to ${manualHs}`, 'wa');
 
-    const [yt, trade, ai] = await Promise.all([
+    const category = (ProductDB.items.find(i => i.name.toLowerCase() === product.toLowerCase()) || {}).cat;
+    const price = document.getElementById('retailPrice').value;
+
+    // ---- PHASE 1: YouTube + Comtrade only. These are fast (a few seconds).
+    // We deliberately do NOT await the AI call here — it's the slow one
+    // (real text generation, often 10-40s) and shouldn't block everything else.
+    DashboardRenderer.log('Fetching YouTube + Comtrade (fast path)...');
+    const [yt, trade] = await Promise.all([
       ApiService.fetchYouTube(product, location),
       ApiService.fetchComtrade(hs.code, countryCode),
-      ApiService.fetchClaude(product, location),
     ]);
-
-    const anySimulated = (yt.simulated || trade.simulated || State.simulationForced);
-    const allSimulated = State.simulationForced || (yt.simulated && trade.simulated);
-    DashboardRenderer.showSimBanner(anySimulated, allSimulated);
 
     if (yt.simulated) DashboardRenderer.log(`YouTube: simulated (${yt.reason})`, 'er');
     else if (yt.available) DashboardRenderer.log(`YouTube: ${Calc.fn(yt.totalViews)} views (real)`, 'ok');
@@ -1163,79 +1204,136 @@ const Controller = {
     else if (trade.available) DashboardRenderer.log(`Comtrade: ${trade.growth}% YoY (real)`, 'ok');
     else DashboardRenderer.log(`Comtrade unavailable: ${trade.reason}`, 'er');
 
-    DashboardRenderer.log(ai ? 'AI intelligence loaded' : 'No AI data (proxy not configured or simulation on)', ai ? 'ok' : 'er');
-
     const sat = Calc.calcSaturation(yt.available ? yt.totalResults : null);
-    const price = document.getElementById('retailPrice').value;
-    const sc0 = {
-      raw: ai?.scRawMat ?? (trade.available ? Math.round(Math.abs(trade.growth) * 0.2) : 10),
-      prod: ai?.scProduction ?? 7,
-      ship: ai?.scShipping ?? 9,
-      mktg: ai?.scMarketing ?? 5,
+    const scFallback = {
+      raw: trade.available ? Math.round(Math.abs(trade.growth) * 0.2) : 10,
+      prod: 7, ship: 9, mktg: 5,
     };
-    const totalScPct0 = sc0.raw + sc0.prod + sc0.ship + sc0.mktg;
-    const margin0 = Calc.calcMargin(price, totalScPct0);
+    const totalScPctFallback = scFallback.raw + scFallback.prod + scFallback.ship + scFallback.mktg;
+    const marginFallback = Calc.calcMargin(price, totalScPctFallback);
 
-    const opp = Calc.calcOpportunity({
+    const oppFallback = Calc.calcOpportunity({
       ytViews: yt.available ? yt.totalViews : 0,
       tradeGrowth: trade.available ? trade.growth : 0,
       satPct: sat.pct,
-      marginPct: margin0 ? margin0.marginPct : 0,
-      hasPrice: !!margin0,
+      marginPct: marginFallback ? marginFallback.marginPct : 0,
+      hasPrice: !!marginFallback,
     });
-    const prob = opp.total;
-    const tag = Calc.tagFor(prob);
-    DashboardRenderer.log(`Opportunity score: ${prob}% (${tag.l})`, 'ok');
+    const tagFallback = Calc.tagFor(oppFallback.total);
 
-    const metricsData = [
-      { l: 'Score', v: prob + '%', d: tag.l, dc: 'var(--gn)' },
+    const metricsFallback = [
+      { l: 'Score', v: oppFallback.total + '%', d: tagFallback.l, dc: 'var(--gn)' },
       { l: 'YouTube views', v: yt.available ? Calc.fn(yt.totalViews) : '—', d: yt.available ? (yt.simulated ? 'simulated' : 'live') : yt.reason, dc: 'var(--bl)' },
       { l: 'Import YoY', v: trade.available ? (trade.growth > 0 ? '+' : '') + trade.growth + '%' : '—', d: trade.available ? (trade.simulated ? 'simulated' : 'live') : trade.reason, dc: 'var(--gn)' },
-      { l: 'HS code', v: hs.code || ai?.hsCode || '—', d: hs.manual ? 'manual override' : hs.matched ? 'matched' : 'unverified', dc: 'var(--am)' },
+      { l: 'HS code', v: hs.code || '—', d: hs.manual ? 'manual override' : hs.matched ? 'matched' : 'unverified', dc: 'var(--am)' },
     ];
-    DashboardRenderer.renderOverview(product, location, prob, tag, ai?.oneLiner || 'No AI summary available.', metricsData);
-    DashboardRenderer.renderOpportunity(opp);
 
+    const anySimulatedPhase1 = (yt.simulated || trade.simulated || State.simulationForced);
+    DashboardRenderer.showSimBanner(anySimulatedPhase1, State.simulationForced);
+    DashboardRenderer.renderOverview(product, location, oppFallback.total, tagFallback, 'Generating AI summary…', metricsFallback);
+    DashboardRenderer.renderOpportunity(oppFallback);
     DashboardRenderer.renderSignals([
       { n: 'YouTube views', headline: `YT: ${Calc.fn(yt.available ? yt.totalViews : 0)}`, note: yt.available ? (yt.simulated ? 'Simulated' : 'Live YouTube API v3') : yt.reason, s: Math.min(Math.round((yt.totalViews || 0) / 800000), 100), v: Calc.fn(yt.totalViews), c: 'var(--bl)', badge: yt.simulated ? '<span class="sim-badge">simulated</span>' : (yt.available ? '<span class="live-badge">live</span>' : '') },
       { n: 'Import growth', headline: '', note: trade.available ? (trade.simulated ? 'Simulated' : 'Live UN Comtrade') : trade.reason, s: trade.available ? Math.min(trade.growth / 2 + 30, 100) : 0, v: trade.available ? (trade.growth > 0 ? '+' : '') + trade.growth + '%' : '—', c: 'var(--gn)', badge: trade.simulated ? '<span class="sim-badge">simulated</span>' : (trade.available ? '<span class="live-badge">live</span>' : '') },
     ]);
 
+    const ytSeriesFallback = Calc.synthesizeHistory(yt.available ? yt.totalViews : 1000, 25);
+    const tradeSeriesFallback = Calc.synthesizeHistory(trade.available ? trade.y2024 : 1000000, trade.available ? trade.growth : 15);
+    DashboardRenderer.renderHistoryCharts(ytSeriesFallback, true, tradeSeriesFallback, true);
+
+    const pmFallback = {
+      marketSizeLabel: '$' + Calc.fn(trade.available ? trade.y2024 : 500000000),
+      simulated: true,
+      direction: (trade.available ? trade.growth : 10) > 0 ? '↑ Rising' : '↓ Falling',
+      directionDetail: trade.available ? `${trade.growth}% YoY import growth` : 'estimated trend',
+      avgPriceLabel: price ? '$' + Number(price).toLocaleString() : '—',
+      series: Calc.synthesizeHistory(100, trade.available ? Math.min(trade.growth, 40) : 8),
+    };
+    DashboardRenderer.renderPriceMarket(pmFallback);
+
+    DashboardRenderer.renderSupplyChain(scFallback, true);
+    const risksFallback = Calc.calcRisks([], category, null);
+    DashboardRenderer.renderRisks(risksFallback);
+    DashboardRenderer.renderRelated(ProductDB.related(product), product);
+    DashboardRenderer.renderGaps(Calc.calcContentGaps(product, yt, trade.available ? trade.growth : 0, null));
+    DashboardRenderer.renderSaturation(sat);
+    DashboardRenderer.showAiLoading();
+
+    State.lastResult = { totalScPct: totalScPctFallback };
+    Controller.recalcProfitability();
+
+    State.currentPayload = {
+      product, location, opp: oppFallback, tag: tagFallback, oneLiner: '',
+      metricsFlat: metricsFallback, risks: risksFallback, exporters: [], thesis: '',
+      ytSeries: ytSeriesFallback, ytModeled: true, tradeSeries: tradeSeriesFallback, tradeModeled: true, pm: pmFallback,
+    };
+
+    DashboardRenderer.showResults();
+    DashboardRenderer.setStatus(`${product} · core data loaded, enriching with AI…`);
+
+    // ---- PHASE 2: AI enrichment, streamed in whenever it resolves.
+    DashboardRenderer.log('Fetching AI intelligence (this is usually the slow step)...', 'wa');
+    let ai = null;
+    try {
+      ai = await ApiService.fetchClaude(product, location);
+    } catch (e) {
+      DashboardRenderer.log(`AI fetch failed: ${e.message || e}`, 'er');
+    }
+    DashboardRenderer.log(ai ? 'AI intelligence loaded' : 'No AI data (proxy not configured or simulation on)', ai ? 'ok' : 'er');
+
+    const sc = {
+      raw: ai?.scRawMat ?? scFallback.raw,
+      prod: ai?.scProduction ?? scFallback.prod,
+      ship: ai?.scShipping ?? scFallback.ship,
+      mktg: ai?.scMarketing ?? scFallback.mktg,
+    };
+    const totalScPct = DashboardRenderer.renderSupplyChain(sc, State.simulationForced);
+    const margin = Calc.calcMargin(price, totalScPct);
+    const opp = Calc.calcOpportunity({
+      ytViews: yt.available ? yt.totalViews : 0,
+      tradeGrowth: trade.available ? trade.growth : 0,
+      satPct: sat.pct,
+      marginPct: margin ? margin.marginPct : 0,
+      hasPrice: !!margin,
+    });
+    const tag = Calc.tagFor(opp.total);
+    DashboardRenderer.log(`Opportunity score (final): ${opp.total}% (${tag.l})`, 'ok');
+
+    const metricsData = [
+      { l: 'Score', v: opp.total + '%', d: tag.l, dc: 'var(--gn)' },
+      { l: 'YouTube views', v: yt.available ? Calc.fn(yt.totalViews) : '—', d: yt.available ? (yt.simulated ? 'simulated' : 'live') : yt.reason, dc: 'var(--bl)' },
+      { l: 'Import YoY', v: trade.available ? (trade.growth > 0 ? '+' : '') + trade.growth + '%' : '—', d: trade.available ? (trade.simulated ? 'simulated' : 'live') : trade.reason, dc: 'var(--gn)' },
+      { l: 'HS code', v: hs.code || ai?.hsCode || '—', d: hs.manual ? 'manual override' : hs.matched ? 'matched' : 'unverified', dc: 'var(--am)' },
+    ];
+    DashboardRenderer.renderOverview(product, location, opp.total, tag, ai?.oneLiner || 'No AI summary available.', metricsData);
+    DashboardRenderer.renderOpportunity(opp);
+
     const ytModeled = !ai?.ytHistory;
-    const ytSeries = ai?.ytHistory || Calc.synthesizeHistory(yt.available ? yt.totalViews : 1000, 25);
+    const ytSeries = ai?.ytHistory || ytSeriesFallback;
     const tradeModeled = !ai?.tradeHistory;
-    const tradeSeries = ai?.tradeHistory || Calc.synthesizeHistory(trade.available ? trade.y2024 : 1000000, trade.available ? trade.growth : 15);
+    const tradeSeries = ai?.tradeHistory || tradeSeriesFallback;
     DashboardRenderer.renderHistoryCharts(ytSeries, ytModeled, tradeSeries, tradeModeled);
 
-    const pmSimulated = State.simulationForced || !ai;
-    const marketSizeVal = trade.available ? trade.y2024 : (ai?.marketSize || 500000000);
     const pm = {
-      marketSizeLabel: '$' + Calc.fn(marketSizeVal),
-      simulated: pmSimulated,
+      marketSizeLabel: '$' + Calc.fn(trade.available ? trade.y2024 : (ai?.marketSize || 500000000)),
+      simulated: State.simulationForced || !ai,
       direction: (trade.available ? trade.growth : 10) > 0 ? '↑ Rising' : '↓ Falling',
       directionDetail: trade.available ? `${trade.growth}% YoY import growth` : 'estimated trend',
       avgPriceLabel: ai?.avgPrice ? ('$' + ai.avgPrice) : (price ? '$' + Number(price).toLocaleString() : '—'),
-      series: ai?.priceHistory || Calc.synthesizeHistory(100, trade.available ? Math.min(trade.growth, 40) : 8),
+      series: ai?.priceHistory || pmFallback.series,
     };
     DashboardRenderer.renderPriceMarket(pm);
 
     DashboardRenderer.renderRawMaterialsFlow(ai?.rawMaterials || [], product, State.simulationForced);
     DashboardRenderer.renderExporters(ai?.exporters || []);
 
-    const totalScPct = DashboardRenderer.renderSupplyChain(sc0, State.simulationForced);
-
-    const category = (ProductDB.items.find(i => i.name.toLowerCase() === product.toLowerCase()) || {}).cat;
     const risks = Calc.calcRisks(ai?.exporters || [], category, ai?.risks);
     DashboardRenderer.renderRisks(risks);
-
-    const related = ProductDB.related(product);
-    DashboardRenderer.renderRelated(related, product);
 
     const gaps = Calc.calcContentGaps(product, yt, trade.available ? trade.growth : 0, ai?.contentGaps);
     DashboardRenderer.renderGaps(gaps);
 
     DashboardRenderer.renderInvestment(ai?.companies || [], ai?.thesis, State.simulationForced);
-    DashboardRenderer.renderSaturation(sat);
 
     State.lastResult = { totalScPct };
     Controller.recalcProfitability();
@@ -1247,8 +1345,7 @@ const Controller = {
     };
     State.currentPayload = payload;
 
-    DashboardRenderer.showResults();
-    document.getElementById('sbtn').disabled = false;
+    document.getElementById('pdfBtn').disabled = false;
     DashboardRenderer.setStatus(`${product} · ${new Date().toLocaleTimeString()}`);
 
     await RecentAnalyses.save(payload);
