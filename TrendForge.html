@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TrendForge Predict v6</title>
+<title>TrendForge Predict v7</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="engine.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -144,43 +145,65 @@ input:checked+.slider:before{transform:translateX(16px);}
 .skel{background:linear-gradient(90deg,var(--surface-alt) 25%,var(--track-bg) 50%,var(--surface-alt) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px;}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .footer-note{font-size:10px;color:var(--ink-faint);text-align:center;padding:14px 0 4px;line-height:1.6;}
+
+/* ---- v7 additions ---- */
+.stage-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;}
+.conf{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;}
+.flag{display:flex;gap:8px;font-size:11px;color:var(--am-t);background:var(--am-bg);border-radius:8px;padding:7px 10px;margin-top:6px;line-height:1.45;}
+.src-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);}
+.src-row:last-child{border-bottom:none;}
+.src-row .nm{font-size:12px;font-weight:600;color:var(--ink);}
+.src-row .ds{font-size:10px;color:var(--ink-faint);line-height:1.45;}
+.src-row .vl{margin-left:auto;font-size:13px;font-weight:600;text-align:right;min-width:70px;}
+.off-badge{font-size:9px;padding:2px 7px;border-radius:10px;background:var(--surface-alt);color:var(--ink-faint);font-weight:600;border:0.5px solid var(--border);}
+.big-num{font-size:34px;font-weight:700;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums;}
+.acc-head{font-size:13px;line-height:1.55;color:var(--ink);padding:10px 12px;background:var(--surface-alt);border-radius:8px;margin:8px 0;}
+.acc-head b{color:var(--bl-t);}
+table.tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+table.tbl th{text-align:left;color:var(--ink-faint);font-weight:600;padding:5px 4px;border-bottom:0.5px solid var(--border-strong);}
+table.tbl td{padding:5px 4px;border-bottom:0.5px solid var(--border);color:var(--ink-soft);font-variant-numeric:tabular-nums;}
+.muted{font-size:10px;color:var(--ink-faint);line-height:1.5;}
+.progress{height:6px;background:var(--track-bg);border-radius:3px;overflow:hidden;margin:8px 0;}
+.progress>div{height:100%;background:var(--bl);width:0;transition:width .3s;}
+details.adv summary{font-size:11px;color:var(--ink-faint);cursor:pointer;margin-bottom:6px;}
 </style>
 </head>
 <body>
 <div class="d">
 
 <div class="topbar">
-  <div class="brand"><em>TrendForge</em> Predict <span class="v">v6 · enhanced</span></div>
+  <div class="brand"><em>TrendForge</em> Predict <span class="v">v7 · momentum engine</span></div>
   <div class="top-actions">
     <span class="dot"></span><span class="stxt" id="stxt">Ready</span>
     <button class="icon-btn" id="themeBtn" onclick="ThemeManager.toggle()" title="Toggle dark mode">◐</button>
   </div>
 </div>
 
+<!-- ============ SETUP ============ -->
 <div class="card">
   <div class="card-head" onclick="tog('cfg')">
-    <div class="card-title">⚙ Setup</div>
+    <div class="card-title">⚙ Setup &amp; data sources</div>
     <div class="card-meta"><span class="chv" id="cfg-chv">▾</span></div>
   </div>
   <div class="card-body" id="cfg-body">
+    <div class="muted" style="margin:4px 0 8px;">
+      <b>Works with zero setup:</b> Wikipedia interest history (10+ years, free, straight from your browser).<br>
+      <b>Extra sources</b> switch on automatically when their key is added to your Vercel project
+      (Settings → Environment Variables): <code>YT_API_KEY</code> (YouTube), <code>COMTRADE_API_KEY</code>
+      (optional — trade data also works without it), <code>SERPAPI_KEY</code> (Google Trends),
+      <code>ANTHROPIC_API_KEY</code> (AI write-up). Keys never touch the browser.
+    </div>
+    <div id="srcStatus" class="chips" style="margin-bottom:8px;"></div>
     <div class="toggle-row">
       <div>
-        <div style="font-size:12px;font-weight:600;">Simulation Mode</div>
-        <div style="font-size:10px;color:var(--ink-faint);">Force all results to be clearly labeled estimated/simulated data</div>
+        <div style="font-size:12px;font-weight:600;">Demo mode</div>
+        <div style="font-size:10px;color:var(--ink-faint);">Use made-up example data (clearly labeled) — for showing the screens offline</div>
       </div>
       <label class="switch"><input type="checkbox" id="simToggle" onchange="onSimToggle()"><span class="slider"></span></label>
     </div>
-    <div style="font-size:10px;color:var(--ink-faint);margin-top:4px;line-height:1.5;">
-      This build never asks for API keys in the browser. Real data comes from a small proxy server
-      (see the setup guide) that holds your keys privately. If the proxy isn't reachable, or a given
-      key isn't configured there, that section is automatically shown as simulated — never silently faked.
-      Sections built by projecting a single real data point forward (e.g. a 12-month curve from one YoY figure)
-      are labeled <span class="mod-badge">modeled</span> rather than <span class="sim-badge">simulated</span>,
-      since they're derived from a real number, not invented.
-    </div>
     <div style="margin-top:8px;">
-      <div style="font-size:10px;color:var(--ink-faint);margin-bottom:3px;">Proxy base URL (leave blank if same origin)</div>
-      <input class="inp" id="proxyBase" placeholder="https://your-proxy.vercel.app" style="width:100%;font-size:11px;">
+      <div style="font-size:10px;color:var(--ink-faint);margin-bottom:3px;">Proxy base URL (leave blank if this page is hosted on the same Vercel project)</div>
+      <input class="inp" id="proxyBase" placeholder="https://your-project.vercel.app" style="width:100%;font-size:11px;">
     </div>
     <div class="toggle-row" style="border-top:0.5px solid var(--border);margin-top:8px;padding-top:10px;">
       <div>
@@ -192,14 +215,45 @@ input:checked+.slider:before{transform:translateX(16px);}
   </div>
 </div>
 
+<!-- ============ ACCURACY TEST ============ -->
+<div class="card">
+  <div class="card-head" onclick="tog('acc')">
+    <div class="card-title">🎯 How accurate is it? <span style="font-size:10px;font-weight:400;color:var(--ink-faint);">test on 10 years of real history</span></div>
+    <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="acc-sum">not run yet</span><span class="chv" id="acc-chv">▾</span></div>
+  </div>
+  <div class="card-body" id="acc-body">
+    <div class="muted" style="margin:4px 0 8px;">
+      The "time machine" test: for 64 well-known products we go back to many past dates, let TrendForge see
+      <em>only</em> the data up to that date, and then check what really happened over the next 12 months.
+      This is how you know whether the score means anything. Takes about 20 seconds.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn" id="accBtn" onclick="Accuracy.run()">Run accuracy test</button>
+      <input class="inp" id="accExtra" placeholder="Add your own products, comma separated (optional)" style="flex:1;min-width:200px;font-size:11px;">
+    </div>
+    <div class="progress" id="accProg" style="display:none;"><div id="accBar"></div></div>
+    <div id="accOut"></div>
+
+    <div style="border-top:0.5px solid var(--border);margin-top:12px;padding-top:10px;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px;">⏳ Time machine — try one product yourself</div>
+      <div class="muted" style="margin-bottom:6px;">Pick a product and a past month. See what TrendForge would have said then, and what actually happened next.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input class="inp" id="tmProduct" placeholder="e.g. oat milk" value="oat milk" style="flex:1;min-width:140px;">
+        <input class="inp" id="tmDate" type="month" value="2019-06" style="width:150px;">
+        <button class="btn secondary" onclick="Accuracy.timeMachine()">Rewind</button>
+      </div>
+      <div id="tmOut" style="margin-top:8px;"></div>
+      <div class="chart-wrap" id="tmChartWrap" style="display:none;"><canvas id="tmChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-head" onclick="tog('testsum'); TestingSummary.render();">
     <div class="card-title">📊 Testing summary <span style="font-size:10px;font-weight:400;color:var(--ink-faint);">this browser only</span></div>
     <div class="card-meta"><span class="chv" id="testsum-chv">▾</span></div>
   </div>
-  <div class="card-body" id="testsum-body">
-    <div id="testsumContent" style="margin-top:4px;"></div>
-  </div>
+  <div class="card-body" id="testsum-body"><div id="testsumContent" style="margin-top:4px;"></div></div>
 </div>
 
 <div class="card">
@@ -213,138 +267,133 @@ input:checked+.slider:before{transform:translateX(16px);}
   </div>
 </div>
 
+<!-- ============ INPUTS ============ -->
 <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-  <input class="inp" id="pinput" placeholder="Any product — solar panels, coffee, rubber gaskets..." value="solar panels" style="flex:1;min-width:180px;">
+  <input class="inp" id="pinput" placeholder="Any product — air fryer, matcha, solar panels..." value="matcha" style="flex:1;min-width:180px;" onkeydown="if(event.key==='Enter')Controller.run()">
   <button class="btn" id="sbtn" onclick="Controller.run()">Analyse</button>
   <button class="btn secondary" id="pdfBtn" onclick="PDFExporter.export()" disabled>Export PDF</button>
 </div>
-<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
   <select class="inp" id="country" style="flex:1;min-width:140px;"></select>
-  <input class="inp" id="hsOverride" placeholder="HS code override (optional)" style="width:190px;">
+  <input class="inp" id="hsOverride" placeholder="HS code (optional)" style="width:150px;">
 </div>
+<details class="adv" style="margin-bottom:10px;">
+  <summary>Advanced: choose the Wikipedia article</summary>
+  <input class="inp" id="wikiOverride" placeholder="Exact Wikipedia article title, e.g. Withania somnifera (for ashwagandha)" style="width:100%;font-size:11px;">
+  <div class="muted" style="margin-top:3px;">Use this if the app picked the wrong article (it always tells you which one it used).</div>
+</details>
 
 <div class="recent-row" id="recentRow"></div>
-
 <div id="logarea" class="log" style="display:none;"></div>
 
+<!-- ============ RESULTS ============ -->
 <div id="results" style="display:none;">
-
   <div id="sim-banner-slot"></div>
 
   <div class="card">
     <div class="card-head" onclick="tog('overview')">
       <div class="card-title" id="ov-title">Overview</div>
-      <div class="card-meta"><span class="tag" id="ov-tag">—</span><span class="chv open" id="overview-chv">▾</span></div>
+      <div class="card-meta"><span class="stage-pill" id="ov-tag">—</span><span class="chv open" id="overview-chv">▾</span></div>
     </div>
     <div class="card-body open" id="overview-body">
-      <div class="g4" id="metrics" style="margin-top:4px;"></div>
-      <div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:0.5px solid var(--border);">
-        <div style="flex:1;font-size:11px;color:var(--ink-soft);" id="one-liner">—</div>
-        <div style="text-align:center;min-width:70px;">
-          <div style="font-size:30px;font-weight:700;color:var(--ink);" id="pbig">—</div>
-          <div style="font-size:10px;color:var(--ink-faint);">opportunity score</div>
+      <div style="display:flex;gap:14px;align-items:center;padding:6px 0 10px;">
+        <div style="text-align:center;min-width:92px;">
+          <div class="big-num" id="pbig">—</div>
+          <div style="font-size:10px;color:var(--ink-faint);margin-top:3px;">Trend Score / 100</div>
         </div>
-      </div>
-
-      <div style="border-top:0.5px solid var(--border);padding-top:10px;margin-top:6px;">
-        <div style="font-size:10px;font-weight:600;letter-spacing:1px;color:var(--ink-faint);text-transform:uppercase;margin-bottom:8px;">Profitability &amp; Saturation</div>
-        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px;">
-          <div style="flex:1;">
-            <div style="font-size:10px;color:var(--ink-faint);margin-bottom:3px;">Estimated retail price (your currency)</div>
-            <input class="inp" id="retailPrice" placeholder="e.g. 2500" style="width:100%;" oninput="Controller.recalcProfitability()">
-          </div>
-        </div>
-        <div class="g2">
-          <div class="mc">
-            <div class="mc-l" data-tip="Margin % = (Retail − Retail × Supply-chain-cost%) ÷ Retail. Note: this ratio is mathematically independent of the price you enter — it only reflects the supply chain cost share. The absolute margin below does scale with your price.">Estimated margin</div>
-            <div class="mc-v" id="marginPct">—</div>
-            <div class="mc-d" id="marginAbs" style="color:var(--ink-faint);">enter a price</div>
-          </div>
-          <div class="mc">
-            <div class="mc-l" data-tip="Saturation Proxy: based on how many YouTube videos exist for this product+location search, not just the top 10 we analyse. More results ≈ more existing content/competition already targeting this demand.">Saturation proxy</div>
-            <div class="mc-v" id="satLabel" style="font-size:13px;">—</div>
-            <div class="sat-track"><div class="sat-marker" id="satMarker" style="left:0%;"></div></div>
-            <div class="mc-d" id="satDetail" style="color:var(--ink-faint);">—</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;color:var(--ink);line-height:1.55;" id="one-liner">—</div>
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span class="conf" id="confPill">—</span>
+            <span class="muted" id="stageDesc"></span>
           </div>
         </div>
       </div>
+      <div id="flags"></div>
+      <div class="g4" id="metrics" style="margin-top:10px;"></div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-head" onclick="tog('oppscore')">
-      <div class="card-title">🎯 Opportunity score breakdown</div>
+      <div class="card-title">🧮 Why this score?</div>
       <div class="card-meta"><span class="chv" id="oppscore-chv">▾</span></div>
     </div>
     <div class="card-body" id="oppscore-body">
-      <div class="chart-wrap sm"><canvas id="oppRadar"></canvas></div>
-      <div id="oppBars" style="margin-top:6px;"></div>
+      <div class="muted" style="margin:4px 0 8px;">Each bar is one ingredient of the score. Parts with no data are left out and the rest is scaled to 100.</div>
+      <div id="oppBars"></div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-head" onclick="tog('signals')">
-      <div class="card-title">📡 Demand signals</div>
-      <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="sig-sum">—</span><span class="chv" id="signals-chv">▾</span></div>
+      <div class="card-title">📈 Interest over time <span id="ytHistBadge"></span></div>
+      <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="sig-sum">—</span><span class="chv open" id="signals-chv">▾</span></div>
     </div>
-    <div class="card-body" id="signals-body">
-      <div id="sigs" style="margin-top:4px;"></div>
-      <div class="g2" style="margin-top:10px;">
-        <div>
-          <div style="font-size:10px;color:var(--ink-faint);margin-bottom:4px;">YouTube attention, last 12 months <span id="ytHistBadge"></span></div>
-          <div class="chart-wrap sm"><canvas id="ytHistChart"></canvas></div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--ink-faint);margin-bottom:4px;">Import value trend <span id="tradeHistBadge"></span></div>
-          <div class="chart-wrap sm"><canvas id="tradeHistChart"></canvas></div>
-        </div>
-      </div>
+    <div class="card-body open" id="signals-body">
+      <div class="muted" id="wikiNote" style="margin-top:4px;"></div>
+      <div class="chart-wrap"><canvas id="interestChart"></canvas></div>
+      <div style="font-size:10px;color:var(--ink-faint);margin:10px 0 4px;">Imports by year <span id="tradeHistBadge"></span></div>
+      <div class="chart-wrap sm"><canvas id="tradeHistChart"></canvas></div>
+      <div style="font-size:10px;font-weight:600;letter-spacing:1px;color:var(--ink-faint);text-transform:uppercase;margin:12px 0 4px;">Data sources used</div>
+      <div id="sigs"></div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-head" onclick="tog('pricemarket')">
-      <div class="card-title">💰 Price trends &amp; market size <span class="ai-badge">AI-generated</span></div>
-      <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="pm-sum">—</span><span class="chv" id="pricemarket-chv">▾</span></div>
+    <div class="card-head" onclick="tog('biz')">
+      <div class="card-title">💼 Business check</div>
+      <div class="card-meta"><span class="chv" id="biz-chv">▾</span></div>
     </div>
-    <div class="card-body" id="pricemarket-body">
+    <div class="card-body" id="biz-body">
       <div class="g3" style="margin-top:4px;">
-        <div class="mc"><div class="mc-l">Est. market size</div><div class="mc-v" id="mktSize">—</div><div class="mc-d" style="color:var(--ink-faint);" id="mktSizeD">—</div></div>
-        <div class="mc"><div class="mc-l">Price trend (12mo)</div><div class="mc-v" id="priceTrendDir">—</div><div class="mc-d" style="color:var(--ink-faint);" id="priceTrendD">—</div></div>
-        <div class="mc"><div class="mc-l">Avg. street price</div><div class="mc-v" id="avgPrice">—</div><div class="mc-d" style="color:var(--ink-faint);">indicative only</div></div>
+        <div><div class="muted">Your selling price</div><input class="inp" id="retailPrice" placeholder="e.g. 2500" style="width:100%;" oninput="Controller.recalcProfitability()"></div>
+        <div><div class="muted">Your cost per unit (buy/make)</div><input class="inp" id="unitCost" placeholder="e.g. 1200" style="width:100%;" oninput="Controller.recalcProfitability()"></div>
+        <div><div class="muted">Other costs, % of price (shipping, ads, fees)</div><input class="inp" id="otherPct" value="20" style="width:100%;" oninput="Controller.recalcProfitability()"></div>
       </div>
-      <div class="chart-wrap" style="margin-top:8px;"><canvas id="priceChart"></canvas></div>
+      <div class="g2" style="margin-top:10px;">
+        <div class="mc">
+          <div class="mc-l">Profit margin</div>
+          <div class="mc-v" id="marginPct">—</div>
+          <div class="mc-d" id="marginAbs" style="color:var(--ink-faint);">enter price and cost</div>
+        </div>
+        <div class="mc">
+          <div class="mc-l" data-tip="How many new YouTube videos about this product appear each month. Many new videos = many sellers/creators already chasing it.">Creator crowding</div>
+          <div class="mc-v" id="satLabel" style="font-size:14px;">—</div>
+          <div class="sat-track"><div class="sat-marker" id="satMarker" style="left:0%;"></div></div>
+          <div class="mc-d" id="satDetail" style="color:var(--ink-faint);">needs YouTube key</div>
+        </div>
+      </div>
+      <div class="g3" style="margin-top:10px;">
+        <div class="mc"><div class="mc-l">Import value (latest year)</div><div class="mc-v" id="mktSize" style="font-size:16px;">—</div><div class="mc-d" style="color:var(--ink-faint);" id="mktSizeD">—</div></div>
+        <div class="mc"><div class="mc-l">Est. market size <span class="ai-badge">AI</span></div><div class="mc-v" id="aiMkt" style="font-size:16px;">—</div><div class="mc-d" style="color:var(--ink-faint);">rough estimate</div></div>
+        <div class="mc"><div class="mc-l">Typical price <span class="ai-badge">AI</span></div><div class="mc-v" id="avgPrice" style="font-size:16px;">—</div><div class="mc-d" style="color:var(--ink-faint);">indicative only</div></div>
+      </div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-head" onclick="tog('rawmat')">
-      <div class="card-title">⛏ Raw materials <span class="ai-badge">AI-generated</span></div>
+      <div class="card-title">⛏ Raw materials <span class="ai-badge">AI estimate</span></div>
       <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="rm-sum">—</span><span class="chv" id="rawmat-chv">▾</span></div>
     </div>
-    <div class="card-body" id="rawmat-body">
-      <div id="rmflows" style="margin-top:4px;"></div>
-    </div>
+    <div class="card-body" id="rawmat-body"><div id="rmflows" style="margin-top:4px;"></div></div>
   </div>
 
   <div class="card">
     <div class="card-head" onclick="tog('exporters')">
-      <div class="card-title">🌍 Top exporters <span class="ai-badge">AI-generated</span></div>
+      <div class="card-title">🌍 Top exporters <span class="ai-badge">AI estimate</span></div>
       <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="exp-sum">—</span><span class="chv" id="exporters-chv">▾</span></div>
     </div>
-    <div class="card-body" id="exporters-body">
-      <div id="explist" style="margin-top:4px;"></div>
-    </div>
+    <div class="card-body" id="exporters-body"><div id="explist" style="margin-top:4px;"></div></div>
   </div>
 
   <div class="card">
     <div class="card-head" onclick="tog('supplychain')">
-      <div class="card-title">🚢 Supply chain cost impact</div>
+      <div class="card-title">🚢 Cost pressure if demand doubles <span class="ai-badge">AI estimate</span></div>
       <div class="card-meta"><span style="font-size:11px;font-weight:600;color:var(--am-t);" id="sc-sum">—</span><span class="chv" id="supplychain-chv">▾</span></div>
     </div>
-    <div class="card-body" id="supplychain-body">
-      <div id="scsteps" style="margin-top:4px;"></div>
-    </div>
+    <div class="card-body" id="supplychain-body"><div id="scsteps" style="margin-top:4px;"></div></div>
   </div>
 
   <div class="card">
@@ -359,40 +408,35 @@ input:checked+.slider:before{transform:translateX(16px);}
   </div>
 
   <div class="card">
+    <div class="card-head" onclick="tog('gap')">
+      <div class="card-title">🕳 Opportunities &amp; gaps</div>
+      <div class="card-meta"><span class="chv" id="gap-chv">▾</span></div>
+    </div>
+    <div class="card-body" id="gap-body"><div id="gapList" style="margin-top:4px;"></div></div>
+  </div>
+
+  <div class="card">
     <div class="card-head" onclick="tog('related')">
       <div class="card-title">🔗 Related products</div>
       <div class="card-meta"><span class="chv" id="related-chv">▾</span></div>
     </div>
-    <div class="card-body" id="related-body">
-      <div class="chips" id="relatedChips" style="margin-top:4px;"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head" onclick="tog('gap')">
-      <div class="card-title">🕳 Competitor &amp; content gap analysis</div>
-      <div class="card-meta"><span class="chv" id="gap-chv">▾</span></div>
-    </div>
-    <div class="card-body" id="gap-body">
-      <div id="gapList" style="margin-top:4px;"></div>
-    </div>
+    <div class="card-body" id="related-body"><div class="chips" id="relatedChips" style="margin-top:4px;"></div></div>
   </div>
 
   <div class="card">
     <div class="card-head" onclick="tog('invest')">
-      <div class="card-title">💼 Investment intelligence <span class="ai-badge">AI-generated</span></div>
+      <div class="card-title">🏢 Listed companies in this space <span class="ai-badge">AI estimate</span></div>
       <div class="card-meta"><span style="font-size:11px;color:var(--ink-faint);" id="inv-sum">—</span><span class="chv" id="invest-chv">▾</span></div>
     </div>
     <div class="card-body" id="invest-body">
       <div id="colist" style="margin-top:4px;"></div>
       <div style="margin-top:8px;padding:9px 11px;background:var(--surface-alt);border-radius:8px;">
-        <div style="font-size:11px;font-weight:600;margin-bottom:3px;color:var(--ink);">Investment thesis</div>
+        <div style="font-size:11px;font-weight:600;margin-bottom:3px;color:var(--ink);">AI thesis</div>
         <div style="font-size:11px;color:var(--ink-soft);line-height:1.6;" id="inv-thesis">—</div>
-        <div style="font-size:10px;color:var(--ink-faint);margin-top:5px;">Not financial advice. Research purposes only.</div>
+        <div style="font-size:10px;color:var(--ink-faint);margin-top:5px;">AI-written from general knowledge; company figures can be outdated. Not financial advice.</div>
       </div>
     </div>
   </div>
-
 </div>
 
 <div id="empty" style="text-align:center;padding:28px 0;color:var(--ink-faint);font-size:13px;">
@@ -400,71 +444,35 @@ input:checked+.slider:before{transform:translateX(16px);}
 </div>
 
 <div class="footer-note">
-  All AI-generated and modeled sections are estimates for research and educational purposes, not financial or trade advice.
+  Trend Score uses measured data only. Sections marked "AI estimate" are written by AI from general knowledge and are for research, not financial or trade advice.
 </div>
-
 </div>
 
 <script>
-/* ============================= STORAGE MANAGER =============================
-   The artifact runtime provides window.storage (get/set/list) for persistence
-   inside Claude.ai. When this file is deployed standalone (e.g. on Vercel, as
-   with this app), window.storage does not exist, so we fall back to real
-   browser localStorage instead — that's safe and correct once you're outside
-   the Claude.ai artifact sandbox. If localStorage is also unavailable
-   (privacy mode, cookies disabled), we fall back further to an in-memory
-   store for the current tab only.
-   NOTE: localStorage is per-browser/per-device. If five friends test this on
-   their own phones, each of them gets their own private "recent analyses"
-   history — there's no shared, central log of everyone's tests unless you
-   add a small server-side logging endpoint (ask if you want that built).
-============================================================================= */
+/* =====================================================================
+   TrendForge v7 — screen logic. The scoring "brain" lives in engine.js.
+   ===================================================================== */
+const E = window.TFEngine;
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pctTxt = (x) => (x == null ? '—' : (x > 0 ? '+' : '') + Math.round(x * 100) + '%');
+
+/* ----------------------------- STORAGE ----------------------------- */
 const StorageManager = {
   backend: (typeof window.storage !== 'undefined') ? 'artifact'
     : (() => { try { localStorage.setItem('__tf_test__', '1'); localStorage.removeItem('__tf_test__'); return 'local'; } catch (e) { return 'memory'; } })(),
-  hasBackend: true, // always true now — 'memory' is the only truly non-persistent case
   _mem: {},
   async get(key) {
-    if (this.backend === 'artifact') {
-      try { const r = await window.storage.get(key, false); return r ? r.value : null; }
-      catch (e) { return null; }
-    }
-    if (this.backend === 'local') {
-      try { return localStorage.getItem('tf:' + key); } catch (e) { return null; }
-    }
+    if (this.backend === 'artifact') { try { const r = await window.storage.get(key, false); return r ? r.value : null; } catch (e) { return null; } }
+    if (this.backend === 'local') { try { return localStorage.getItem('tf:' + key); } catch (e) { return null; } }
     return Object.prototype.hasOwnProperty.call(this._mem, key) ? this._mem[key] : null;
   },
   async set(key, value) {
-    if (this.backend === 'artifact') {
-      try { await window.storage.set(key, value, false); return true; }
-      catch (e) { return false; }
-    }
-    if (this.backend === 'local') {
-      try { localStorage.setItem('tf:' + key, value); return true; } catch (e) { return false; }
-    }
-    this._mem[key] = value;
-    return true;
-  },
-  async list(prefix) {
-    if (this.backend === 'artifact') {
-      try { const r = await window.storage.list(prefix, false); return r ? r.keys : []; }
-      catch (e) { return []; }
-    }
-    if (this.backend === 'local') {
-      try {
-        const out = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith('tf:') && (!prefix || k.slice(3).startsWith(prefix))) out.push(k.slice(3));
-        }
-        return out;
-      } catch (e) { return []; }
-    }
-    return Object.keys(this._mem).filter(k => !prefix || k.startsWith(prefix));
+    if (this.backend === 'artifact') { try { await window.storage.set(key, value, false); return true; } catch (e) { return false; } }
+    if (this.backend === 'local') { try { localStorage.setItem('tf:' + key, value); return true; } catch (e) { return false; } }
+    this._mem[key] = value; return true;
   },
 };
 
-/* ============================= THEME MANAGER ============================= */
 const ThemeManager = {
   async init() {
     let saved = await StorageManager.get('theme');
@@ -474,1040 +482,747 @@ const ThemeManager = {
   apply(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     document.getElementById('themeBtn').textContent = theme === 'dark' ? '◑' : '◐';
-    ChartManager.refreshAllTheming();
+    if (State.currentPayload) DashboardRenderer.renderCharts(State.currentPayload);
   },
   async toggle() {
-    const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-    const next = cur === 'dark' ? 'light' : 'dark';
-    this.apply(next);
-    await StorageManager.set('theme', next);
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    this.apply(next); await StorageManager.set('theme', next);
   },
 };
 
-const State = {
-  simulationForced: false,
-  lastResult: null,
-  saveEnabled: true,
-  currentPayload: null,
-};
+const State = { simulationForced: false, saveEnabled: true, currentPayload: null };
 
 const COUNTRIES = [
-  { n: 'India', ct: '356' }, { n: 'China', ct: '156' }, { n: 'United States', ct: '842' },
-  { n: 'Germany', ct: '276' }, { n: 'United Kingdom', ct: '826' }, { n: 'Japan', ct: '392' },
-  { n: 'Brazil', ct: '076' }, { n: 'Australia', ct: '036' }, { n: 'South Africa', ct: '710' },
-  { n: 'UAE', ct: '784' }, { n: 'Singapore', ct: '702' }, { n: 'France', ct: '251' },
-  { n: 'Italy', ct: '380' }, { n: 'Canada', ct: '124' }, { n: 'Mexico', ct: '484' },
-  { n: 'South Korea', ct: '410' }, { n: 'Indonesia', ct: '360' }, { n: 'Thailand', ct: '764' },
-  { n: 'Saudi Arabia', ct: '682' }, { n: 'Nigeria', ct: '566' },
+  { n: 'India', ct: '699', iso: 'IN' }, { n: 'United States', ct: '842', iso: 'US' }, { n: 'China', ct: '156', iso: 'CN' },
+  { n: 'Germany', ct: '276', iso: 'DE' }, { n: 'United Kingdom', ct: '826', iso: 'GB' }, { n: 'Japan', ct: '392', iso: 'JP' },
+  { n: 'Brazil', ct: '076', iso: 'BR' }, { n: 'Australia', ct: '036', iso: 'AU' }, { n: 'South Africa', ct: '710', iso: 'ZA' },
+  { n: 'UAE', ct: '784', iso: 'AE' }, { n: 'Singapore', ct: '702', iso: 'SG' }, { n: 'France', ct: '251', iso: 'FR' },
+  { n: 'Italy', ct: '380', iso: 'IT' }, { n: 'Canada', ct: '124', iso: 'CA' }, { n: 'Mexico', ct: '484', iso: 'MX' },
+  { n: 'South Korea', ct: '410', iso: 'KR' }, { n: 'Indonesia', ct: '360', iso: 'ID' }, { n: 'Thailand', ct: '764', iso: 'TH' },
+  { n: 'Saudi Arabia', ct: '682', iso: 'SA' }, { n: 'Nigeria', ct: '566', iso: 'NG' },
 ];
-
 function populateCountries() {
-  const sel = document.getElementById('country');
-  sel.innerHTML = COUNTRIES.map(c => `<option value="${c.ct}" ${c.n === 'India' ? 'selected' : ''}>${c.n}</option>`).join('');
+  document.getElementById('country').innerHTML = COUNTRIES.map((c) => `<option value="${c.ct}" ${c.n === 'India' ? 'selected' : ''}>${c.n}</option>`).join('');
 }
 
-/* ============================= PRODUCT DATABASE ============================= */
+/* ----------------------------- PRODUCT DATABASE ----------------------------- */
 const ProductDB = {
   items: [
-    { name: 'Solar panels', em: '☀️', cat: 'Energy', hs: '8541' },
-    { name: 'EV batteries', em: '🔋', cat: 'Energy', hs: '8507' },
-    { name: 'Wind turbine blades', em: '🌬️', cat: 'Energy', hs: '8412' },
-    { name: 'Solar water heaters', em: '🚿', cat: 'Energy', hs: '8419' },
-    { name: 'Lithium batteries', em: '⚡', cat: 'Energy', hs: '8507' },
-    { name: 'LED lighting', em: '💡', cat: 'Tech', hs: '8539' },
-    { name: 'Drones', em: '🛸', cat: 'Tech', hs: '8806' },
-    { name: 'Smartwatches', em: '⌚', cat: 'Tech', hs: '8517' },
-    { name: '3D printers', em: '🖨️', cat: 'Tech', hs: '8485' },
-    { name: 'Air purifiers', em: '🌀', cat: 'Tech', hs: '8421' },
-    { name: 'Electric scooters', em: '🛴', cat: 'Tech', hs: '8711' },
-    { name: 'Coffee', em: '☕', cat: 'Agriculture', hs: '0901' },
-    { name: 'Wheat', em: '🌾', cat: 'Agriculture', hs: '1001' },
-    { name: 'Organic honey', em: '🍯', cat: 'Agriculture', hs: '0409' },
-    { name: 'Cotton', em: '🌱', cat: 'Agriculture', hs: '5201' },
-    { name: 'Hydroponic kits', em: '🪴', cat: 'Agriculture', hs: '8424' },
-    { name: 'Shampoo', em: '🧴', cat: 'Health', hs: '3305' },
-    { name: 'Aloe vera skincare', em: '🧖', cat: 'Health', hs: '3304' },
-    { name: 'Pharmaceuticals', em: '💊', cat: 'Health', hs: '3004' },
-    { name: 'Baby formula', em: '🍼', cat: 'Health', hs: '1901' },
-    { name: 'Pet supplements', em: '🐾', cat: 'Health', hs: '2309' },
-    { name: 'Bamboo toothbrushes', em: '🪥', cat: 'Health', hs: '9603' },
-    { name: 'Linen fabric', em: '🧵', cat: 'Textiles', hs: '5309' },
-    { name: 'Sneakers', em: '👟', cat: 'Textiles', hs: '6404' },
-    { name: 'Backpacks', em: '🎒', cat: 'Textiles', hs: '4202' },
-    { name: 'Sunglasses', em: '🕶️', cat: 'Textiles', hs: '9004' },
-    { name: 'Yoga mats', em: '🧘', cat: 'Textiles', hs: '9506' },
-    { name: 'Steel pipes', em: '🔩', cat: 'Materials', hs: '7304' },
-    { name: 'Copper wire', em: '🔌', cat: 'Materials', hs: '7407' },
-    { name: 'Rubber', em: '🧱', cat: 'Materials', hs: '4001' },
-    { name: 'Plastic resin', em: '♻️', cat: 'Materials', hs: '3901' },
-    { name: 'Aluminum', em: '🥫', cat: 'Materials', hs: '7601' },
-    { name: 'Cement', em: '🏗️', cat: 'Materials', hs: '2523' },
-    { name: 'Reusable water bottles', em: '🍶', cat: 'Consumer', hs: '7310' },
-    { name: 'Home espresso machines', em: '☕', cat: 'Consumer', hs: '8516' },
+    { name: 'Solar panels', em: '☀️', cat: 'Energy', hs: '8541' }, { name: 'EV batteries', em: '🔋', cat: 'Energy', hs: '8507' },
+    { name: 'Heat pumps', em: '♨️', cat: 'Energy', hs: '8418' }, { name: 'Induction cooktop', em: '🍳', cat: 'Energy', hs: '8516' },
+    { name: 'Air fryer', em: '🍟', cat: 'Tech', hs: '8516' }, { name: 'Drones', em: '🛸', cat: 'Tech', hs: '8806' },
+    { name: 'Smartwatches', em: '⌚', cat: 'Tech', hs: '8517' }, { name: 'Smart ring', em: '💍', cat: 'Tech', hs: '8517' },
+    { name: '3D printers', em: '🖨️', cat: 'Tech', hs: '8485' }, { name: 'Air purifiers', em: '🌀', cat: 'Tech', hs: '8421' },
+    { name: 'Electric scooters', em: '🛴', cat: 'Tech', hs: '8711' }, { name: 'Coffee', em: '☕', cat: 'Food', hs: '0901' },
+    { name: 'Matcha', em: '🍵', cat: 'Food', hs: '0902' }, { name: 'Organic honey', em: '🍯', cat: 'Food', hs: '0409' },
+    { name: 'Oat milk', em: '🥛', cat: 'Food', hs: '2202' }, { name: 'Millets', em: '🌾', cat: 'Food', hs: '1008' },
+    { name: 'Chia seeds', em: '🌱', cat: 'Food', hs: '1207' }, { name: 'Protein powder', em: '💪', cat: 'Health', hs: '2106' },
+    { name: 'Ashwagandha', em: '🌿', cat: 'Health', hs: '1211' }, { name: 'Creatine', em: '🏋️', cat: 'Health', hs: '2925' },
+    { name: 'Shampoo', em: '🧴', cat: 'Health', hs: '3305' }, { name: 'Niacinamide serum', em: '🧖', cat: 'Health', hs: '3304' },
+    { name: 'Pet supplements', em: '🐾', cat: 'Health', hs: '2309' }, { name: 'Bamboo toothbrushes', em: '🪥', cat: 'Health', hs: '9603' },
+    { name: 'Linen fabric', em: '🧵', cat: 'Lifestyle', hs: '5309' }, { name: 'Sneakers', em: '👟', cat: 'Lifestyle', hs: '6404' },
+    { name: 'Pickleball paddles', em: '🏓', cat: 'Lifestyle', hs: '9506' }, { name: 'Yoga mats', em: '🧘', cat: 'Lifestyle', hs: '9506' },
+    { name: 'Plush toys', em: '🧸', cat: 'Lifestyle', hs: '9503' }, { name: 'Reusable water bottles', em: '🍶', cat: 'Lifestyle', hs: '9617' },
+    { name: 'Copper wire', em: '🔌', cat: 'Materials', hs: '7408' }, { name: 'Natural rubber', em: '🧱', cat: 'Materials', hs: '4001' },
+    { name: 'Aluminium', em: '🥫', cat: 'Materials', hs: '7601' }, { name: 'Cement', em: '🏗️', cat: 'Materials', hs: '2523' },
   ],
-  cats() { return ['All', ...new Set(this.items.map(i => i.cat))]; },
-  render(filterCat) {
-    const cat = filterCat || 'All';
-    document.getElementById('pdbCats').innerHTML = this.cats().map(c =>
-      `<span class="chip ${c === cat ? 'accent' : ''}" onclick="ProductDB.render('${c}')">${c}</span>`
-    ).join('');
-    const list = cat === 'All' ? this.items : this.items.filter(i => i.cat === cat);
-    document.getElementById('pdbGrid').innerHTML = list.map(i =>
-      `<div class="pdb-item" onclick="ProductDB.pick('${i.name.replace(/'/g, "\\'")}','${i.hs}')"><span class="em">${i.em}</span>${i.name}</div>`
-    ).join('');
+  cats() { return ['All', ...new Set(this.items.map((i) => i.cat))]; },
+  render(cat) {
+    cat = cat || 'All';
+    document.getElementById('pdbCats').innerHTML = this.cats().map((c) => `<span class="chip ${c === cat ? 'accent' : ''}" onclick="ProductDB.render('${c}')">${c}</span>`).join('');
+    const list = cat === 'All' ? this.items : this.items.filter((i) => i.cat === cat);
+    document.getElementById('pdbGrid').innerHTML = list.map((i, k) => `<div class="pdb-item" onclick="ProductDB.pick(${this.items.indexOf(i)})"><span class="em">${i.em}</span>${esc(i.name)}</div>`).join('');
   },
-  pick(name, hs) {
-    document.getElementById('pinput').value = name;
-    document.getElementById('hsOverride').value = '';
-    document.getElementById('hsOverride').dataset.suggested = hs;
+  pick(idx) {
+    const i = this.items[idx];
+    document.getElementById('pinput').value = i.name;
+    document.getElementById('hsOverride').value = i.hs;
+    document.getElementById('wikiOverride').value = '';
     Controller.run();
   },
-  related(name, excludeHs) {
-    const cur = this.items.find(i => i.name.toLowerCase() === (name || '').toLowerCase());
-    const cat = cur ? cur.cat : null;
-    let pool = cat ? this.items.filter(i => i.cat === cat && i.name.toLowerCase() !== (name || '').toLowerCase()) : [];
-    if (pool.length < 4) pool = pool.concat(this.items.filter(i => !pool.includes(i)).slice(0, 4 - pool.length));
+  find(name) { return this.items.find((i) => i.name.toLowerCase() === String(name || '').toLowerCase()); },
+  related(name) {
+    const cur = this.find(name);
+    let pool = cur ? this.items.filter((i) => i.cat === cur.cat && i !== cur) : [];
+    if (pool.length < 4) pool = pool.concat(this.items.filter((i) => !pool.includes(i) && i !== cur).slice(0, 4 - pool.length));
     return pool.slice(0, 6);
   },
 };
 
-/* ============================= HS CODE MAP (expanded) ============================= */
-const HS_MAP = [
-  [['solar panel', 'photovoltaic', 'pv module'], '8541'],
-  [['solar water heat'], '8419'],
-  [['wind turbine'], '8412'],
-  [['ev charg', 'battery', 'batteries', 'lithium'], '8507'],
-  [['shampoo', 'hair'], '3305'],
-  [['steel', 'pipe'], '7304'],
-  [['brass', 'copper'], '7407'],
-  [['aloe', 'cosmetic', 'skincare'], '3304'],
-  [['linen', 'saree', 'fabric'], '5309'],
-  [['wheat', 'grain'], '1001'],
-  [['coffee'], '0901'],
-  [['cotton'], '5201'],
-  [['led', 'light'], '8539'],
-  [['rubber'], '4001'],
-  [['plastic'], '3901'],
-  [['alumin'], '7601'],
-  [['cement'], '2523'],
-  [['pharma', 'medicine', 'drug'], '3004'],
-  [['drone', 'uav'], '8806'],
-  [['smartwatch', 'wearable'], '8517'],
-  [['3d print'], '8485'],
-  [['air purif'], '8421'],
-  [['scooter'], '8711'],
-  [['honey'], '0409'],
-  [['hydroponic'], '8424'],
-  [['baby formula', 'infant formula'], '1901'],
-  [['pet supplement', 'pet food'], '2309'],
-  [['bamboo toothbrush', 'toothbrush'], '9603'],
-  [['sneaker', 'shoe', 'footwear'], '6404'],
-  [['backpack', 'bag'], '4202'],
-  [['sunglass'], '9004'],
-  [['yoga mat'], '9506'],
-  [['water bottle'], '7310'],
-  [['espresso', 'coffee machine'], '8516'],
-  [['leather'], '4104'],
-  [['wool'], '5101'],
-  [['silk'], '5007'],
-  [['jute'], '5310'],
-  [['paper', 'cardboard'], '4802'],
-  [['glass'], '7005'],
-  [['timber', 'wood', 'lumber'], '4407'],
-  [['spice', 'turmeric', 'cardamom'], '0910'],
-  [['tea'], '0902'],
-  [['sugar'], '1701'],
-  [['fertilizer'], '3105'],
-  [['semiconductor', 'chip'], '8542'],
-  [['furniture'], '9403'],
-];
+/* ----------------------------- DEMO DATA (seeded, repeatable) ----------------------------- */
+function seeded(str) {
+  let h = 2166136261; for (const c of String(str)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const Demo = {
+  wiki(product) {
+    const r = seeded(product); const trend = (r() - 0.35) * 0.06; let v = 2000 + r() * 20000; const vals = [];
+    for (let i = 0; i < 60; i++) { v *= 1 + trend + (r() - 0.5) * 0.08; vals.push(Math.round(v * (1 + 0.1 * Math.sin(i / 1.9)))); }
+    return { available: true, simulated: true, title: product + ' (demo)', start: E.addMonths(Wiki.lastFullMonth(), -59).replace('-', ''), values: vals, raw: vals };
+  },
+  yt(product) { const r = seeded(product + 'yt'); const a = Math.round(20 + r() * 400), b = Math.round(a / (0.6 + r() * 1.2)); return { available: true, simulated: true, uploadsLast30d: a, uploadsSame30dLastYear: b, uploadGrowth: Math.round((a / b - 1) * 100), medianViewsPerDayNewVideos: Math.round(50 + r() * 3000) }; },
+  trade(product) { const r = seeded(product + 'tr'); const y = new Date().getFullYear(); let v = 2e8 + r() * 8e8; const series = []; for (let k = 4; k >= 1; k--) { series.push({ year: y - k, value: Math.round(v) }); v *= 0.85 + r() * 0.5; } const a = series[3], b = series[2]; return { available: true, simulated: true, series, growth: Math.round((a.value / b.value - 1) * 100), latestYear: a.year, latestValue: a.value }; },
+};
 
-/* ============================= API SERVICE ============================= */
+/* ----------------------------- DATA SOURCES ----------------------------- */
+const Wiki = {
+  totals: null,
+  lastFullMonth() { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0'); },
+  endParam() { const m = this.lastFullMonth(); const last = new Date(+m.slice(0, 4), +m.slice(4, 6), 0).getDate(); return m + String(last).padStart(2, '0') + '00'; },
+  async resolve(q, exact) {
+    const base = 'https://en.wikipedia.org/w/api.php?format=json&origin=*';
+    const r = await fetch(`${base}&action=query&redirects=1&titles=${encodeURIComponent(q)}`).then((x) => x.json());
+    const pg = Object.values(r.query.pages)[0];
+    if (pg && pg.missing === undefined && !('invalid' in pg)) return pg.title;
+    if (exact) return null;
+    const s = await fetch(`${base}&action=query&list=search&srlimit=1&srsearch=${encodeURIComponent(q)}`).then((x) => x.json());
+    return s.query.search[0]?.title || null;
+  },
+  async getTotals() {
+    if (this.totals) return this.totals;
+    const d = await fetch(`https://wikimedia.org/api/rest_v1/metrics/pageviews/aggregate/en.wikipedia/all-access/user/monthly/2015070100/${this.endParam()}`).then((x) => x.json());
+    this.totals = {}; (d.items || []).forEach((i) => { this.totals[i.timestamp.slice(0, 6)] = i.views; });
+    return this.totals;
+  },
+  async series(title) {
+    const t = encodeURIComponent(title.replace(/ /g, '_'));
+    const d = await fetch(`https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${t}/monthly/2015070100/${this.endParam()}`).then((x) => x.json());
+    if (!d.items || !d.items.length) return null;
+    return { start: d.items[0].timestamp.slice(0, 6), raw: d.items.map((i) => i.views) };
+  },
+  async fetch(product, override) {
+    if (State.simulationForced) return Demo.wiki(product);
+    try {
+      const title = override ? await this.resolve(override, true) : await this.resolve(product);
+      if (!title) return { available: false, reason: 'no matching Wikipedia article' };
+      const [s, totals] = await Promise.all([this.series(title), this.getTotals().catch(() => null)]);
+      if (!s) return { available: false, reason: 'no page-view history', title };
+      return { available: true, simulated: false, title, start: s.start, raw: s.raw, values: E.normalize(s.raw, s.start, totals) };
+    } catch (e) {
+      return { available: false, reason: 'Wikipedia unreachable (' + (e.message || e) + ')' };
+    }
+  },
+};
+
 const ApiService = {
-  base() {
-    const b = document.getElementById('proxyBase').value.trim();
-    return b ? b.replace(/\/$/, '') : '';
+  base() { const b = document.getElementById('proxyBase').value.trim(); return b ? b.replace(/\/$/, '') : ''; },
+  async getJSON(path) {
+    const r = await fetch(this.base() + path);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
   },
-
-  async fetchYouTube(product, location) {
-    if (State.simulationForced) return this._simYT(product);
+  async youtube(product, iso) {
+    if (State.simulationForced) return Demo.yt(product);
     try {
-      const r = await fetch(`${this.base()}/api/youtube?product=${encodeURIComponent(product)}&location=${encodeURIComponent(location)}`);
-      const d = await r.json();
-      if (!d.configured) return this._simYT(product, 'no_key_on_proxy');
-      if (!d.available) return { available: false, simulated: false, reason: d.reason };
-      return { available: true, simulated: false, totalViews: d.totalViews, totalResults: d.totalResults };
-    } catch (e) {
-      return this._simYT(product, 'proxy_unreachable');
-    }
+      const d = await this.getJSON(`/api/youtube?product=${encodeURIComponent(product)}&region=${iso}`);
+      if (!d.configured) return { available: false, off: true, reason: 'no YouTube key on server' };
+      return d.available ? { available: true, ...d } : { available: false, reason: d.reason };
+    } catch (e) { return { available: false, off: true, reason: 'server not reachable' }; }
   },
-
-  async fetchComtrade(hsCode, countryCode) {
-    if (State.simulationForced) return this._simTrade();
+  async trends(product, iso) {
+    if (State.simulationForced) return { available: false, off: true, reason: 'demo mode' };
     try {
-      const r = await fetch(`${this.base()}/api/comtrade?hsCode=${encodeURIComponent(hsCode || '')}&countryCode=${encodeURIComponent(countryCode)}`);
-      const d = await r.json();
-      if (!d.configured) return this._simTrade('no_key_on_proxy');
-      if (!d.available) return { available: false, simulated: false, reason: d.reason };
-      return { available: true, simulated: false, growth: d.growth, y2024: d.y2024, y2023: d.y2023 };
-    } catch (e) {
-      return this._simTrade('proxy_unreachable');
-    }
+      const d = await this.getJSON(`/api/trends?product=${encodeURIComponent(product)}&geo=${iso}`);
+      if (!d.configured) return { available: false, off: true, reason: 'no SERPAPI key on server' };
+      return d.available ? { available: true, start: d.start, values: d.values } : { available: false, reason: d.reason };
+    } catch (e) { return { available: false, off: true, reason: 'server not reachable' }; }
   },
-
-  async fetchClaude(product, location) {
-    if (State.simulationForced) return null;
+  async comtrade(hs, ct, product) {
+    if (State.simulationForced) return Demo.trade(product);
+    if (!hs) return { available: false, reason: 'no HS code yet' };
     try {
-      const r = await fetch(`${this.base()}/api/claude`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product, location }),
-      });
+      const d = await this.getJSON(`/api/comtrade?hsCode=${encodeURIComponent(hs)}&countryCode=${ct}`);
+      return d.available ? { available: true, ...d } : { available: false, reason: d.reason };
+    } catch (e) { return { available: false, off: true, reason: 'needs the server (Vercel) for trade data' }; }
+  },
+  async ai(product, location, signals) {
+    if (State.simulationForced) return { data: null, reason: 'demo mode' };
+    try {
+      const r = await fetch(`${this.base()}/api/claude`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product, location, signals }) });
       const d = await r.json();
-      if (!d.configured || !d.available) return null;
-      return d.data;
-    } catch (e) {
-      return null;
-    }
-  },
-
-  _simYT(product, reason) {
-    const seed = product.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return {
-      available: true,
-      simulated: true,
-      reason: reason || 'simulation_mode_on',
-      totalViews: 800000 + (seed % 12) * 900000,
-      totalResults: 500 + (seed % 50) * 400,
-    };
-  },
-
-  _simTrade(reason) {
-    const seed = Math.floor(Math.random() * 1000);
-    const g = 12 + (seed % 75);
-    const base = 400000000 + seed * 700000;
-    return { available: true, simulated: true, reason: reason || 'simulation_mode_on', growth: g, y2024: Math.round(base * (1 + g / 100)), y2023: base };
+      if (!d.configured) return { data: null, off: true, reason: 'no AI key on server' };
+      return d.available ? { data: d.data } : { data: null, reason: d.reason };
+    } catch (e) { return { data: null, off: true, reason: 'server not reachable' }; }
   },
 };
 
-/* ============================= CALC ============================= */
-const Calc = {
-  getHS(product) {
-    const x = product.toLowerCase();
-    for (const [kws, code] of HS_MAP) if (kws.some(k => x.includes(k))) return { code, matched: true };
-    return { code: null, matched: false };
-  },
-
-  calcProb(ytGrowth, tradeGrowth, ytViews) {
-    let s = 0;
-    if (ytViews > 30000000) s += 25; else if (ytViews > 10000000) s += 16; else if (ytViews > 2000000) s += 8; else if (ytViews > 500000) s += 4;
-    if (ytGrowth > 50) s += 24; else if (ytGrowth > 20) s += 15; else if (ytGrowth > 5) s += 8;
-    if (tradeGrowth > 100) s += 28; else if (tradeGrowth > 50) s += 19; else if (tradeGrowth > 20) s += 11; else if (tradeGrowth > 0) s += 5;
-    return Math.min(s, 97);
-  },
-
-  // v6: transparent, weighted opportunity score with visible breakdown.
-  calcOpportunity({ ytViews, tradeGrowth, satPct, marginPct, hasPrice }) {
-    const demandPts = Math.round(Math.min((ytViews || 0) / 40000000, 1) * 30);
-    const tradePts = Math.round(Math.min(Math.max(tradeGrowth || 0, 0) / 120, 1) * 30);
-    const openPts = Math.round(Math.min(Math.max(100 - (satPct || 0), 0) / 100, 1) * 20);
-    const marginPts = hasPrice ? Math.round(Math.min(Math.max(marginPct || 0, 0) / 70, 1) * 20) : 10;
-    const total = Math.min(demandPts + tradePts + openPts + marginPts, 99);
-    return {
-      total,
-      breakdown: [
-        { label: 'Demand momentum', points: demandPts, max: 30, color: 'var(--bl)', note: 'YouTube attention volume' },
-        { label: 'Trade growth', points: tradePts, max: 30, color: 'var(--gn)', note: 'Import YoY growth' },
-        { label: 'Market openness', points: openPts, max: 20, color: 'var(--am)', note: 'Inverse of content saturation' },
-        { label: hasPrice ? 'Profitability' : 'Profitability (est.)', points: marginPts, max: 20, color: 'var(--pu)', note: hasPrice ? 'From your entered price' : 'Neutral default — enter a price to refine' },
-      ],
-    };
-  },
-
-  calcMargin(retailPrice, totalScPct) {
-    const price = parseFloat(retailPrice);
-    if (!price || price <= 0) return null;
-    const marginPct = (price - (totalScPct / 100) * price) / price;
-    const marginAbs = price - (totalScPct / 100) * price;
-    return { marginPct: Math.round(marginPct * 1000) / 10, marginAbs: Math.round(marginAbs * 100) / 100 };
-  },
-
-  calcSaturation(totalResults) {
-    if (totalResults == null) return { label: 'Unknown', pct: 0, detail: 'no data' };
-    let label, pct;
-    if (totalResults < 1000) { label = 'Low Competition (Niche)'; pct = 12; }
-    else if (totalResults < 10000) { label = 'Moderate Competition'; pct = 38; }
-    else if (totalResults < 100000) { label = 'Growing Competition'; pct = 65; }
-    else { label = 'High Competition (Saturated)'; pct = 90; }
-    return { label, pct, detail: `${totalResults.toLocaleString()} matching videos found` };
-  },
-
-  // v6: risk heuristics from exporter concentration + category, overridable by AI payload.
-  calcRisks(exporters, category, aiRisks) {
-    const topShare = exporters && exporters[0] ? (exporters[0].share || 0) : 0;
-    let supply = topShare > 50 ? 'High' : topShare > 30 ? 'Medium' : 'Low';
-    let geo = (exporters && exporters.length >= 5) ? 'Low' : (exporters && exporters.length >= 3) ? 'Medium' : 'High';
-    const regCats = { Health: 'High', Energy: 'Medium', Materials: 'Medium' };
-    let regulatory = regCats[category] || 'Low';
-    if (aiRisks) {
-      supply = aiRisks.supply || supply;
-      geo = aiRisks.geo || geo;
-      regulatory = aiRisks.regulatory || regulatory;
-    }
-    return { supply, geo, regulatory, notes: (aiRisks && aiRisks.notes) || `Heuristic: supply risk from top-exporter concentration (${topShare || '—'}% share), geo risk from exporter diversification, regulatory risk from category defaults. Override by wiring "risks" into your /api/claude proxy response.` };
-  },
-
-  // v6: content gap heuristics — templated but driven by real numbers on the page.
-  calcContentGaps(product, yt, tradeGrowth, aiGaps) {
-    if (aiGaps && aiGaps.length) return aiGaps;
-    const gaps = [];
-    if (yt.available) {
-      const ratio = (yt.totalViews || 0) / Math.max(yt.totalResults || 1, 1);
-      if (ratio > 3000) gaps.push(`High demand-to-content ratio (${Calc.fn(yt.totalViews)} views across only ${Calc.fn(yt.totalResults)} videos) — an underserved audience for ${product} content or products.`);
-      else gaps.push(`Demand-to-content ratio is closer to saturated (${Calc.fn(yt.totalViews)} views, ${Calc.fn(yt.totalResults)} videos) — differentiation will matter more than raw entry.`);
-    }
-    if (tradeGrowth > 20) gaps.push(`Import growth of +${tradeGrowth}% suggests buyers are actively sourcing ${product} right now — a window for new suppliers or distributors.`);
-    gaps.push(`Consider long-tail angles: comparisons, buyer guides, and "${product} vs alternatives" content are typically thinner than head-term coverage.`);
-    return gaps;
-  },
-
-  // v6: synthesize a labeled trend when only a snapshot + YoY growth is known.
-  synthesizeHistory(currentValue, yoyGrowthPct, points) {
-    points = points || 12;
-    const monthlyRate = Math.pow(1 + (yoyGrowthPct || 0) / 100, 1 / 12) - 1;
-    const arr = [];
-    for (let i = points - 1; i >= 0; i--) {
-      arr.push(Math.max(currentValue / Math.pow(1 + monthlyRate, i), 0));
-    }
-    return arr;
-  },
-
-  tagFor(p) {
-    if (p >= 75) return { l: 'HOT', bg: 'var(--rd-bg)', tx: 'var(--rd-t)' };
-    if (p >= 55) return { l: 'RISING', bg: 'var(--am-bg)', tx: 'var(--am-t)' };
-    if (p >= 35) return { l: 'BUILDING', bg: 'var(--gn-bg)', tx: 'var(--gn-t)' };
-    return { l: 'STEADY', bg: 'var(--bl-bg)', tx: 'var(--bl-t)' };
-  },
-
-  riskCol(r) {
-    if (r === 'Low') return { bg: 'var(--gn-bg)', tx: 'var(--gn-t)' };
-    if (r === 'High') return { bg: 'var(--rd-bg)', tx: 'var(--rd-t)' };
-    return { bg: 'var(--am-bg)', tx: 'var(--am-t)' };
-  },
-
-  fn(n) {
-    if (n === null || n === undefined) return '—';
-    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-    return Math.round(n).toString();
-  },
-};
-
-/* ============================= CHART MANAGER ============================= */
+/* ----------------------------- CHARTS ----------------------------- */
 const ChartManager = {
   instances: {},
-  cssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); },
+  destroy(id) { if (this.instances[id]) { this.instances[id].destroy(); delete this.instances[id]; } },
+  ok(id) {
+    if (typeof Chart !== 'undefined') return true;
+    const c = document.getElementById(id); if (c && !c.parentElement.querySelector('.muted')) c.parentElement.insertAdjacentHTML('beforeend', '<div class="muted">Chart library failed to load (network/ad-blocker). Data loaded fine.</div>');
+    return false;
   },
-  destroy(id) {
-    if (this.instances[id]) { this.instances[id].destroy(); delete this.instances[id]; }
-  },
-  refreshAllTheming() {
-    // Re-render charts currently on screen so colors track the new theme.
-    if (State.currentPayload) DashboardRenderer.renderAllCharts(State.currentPayload);
-  },
-  _unavailable(canvasId) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    const wrap = ctx.parentElement;
-    if (wrap && !wrap.querySelector('.chart-fallback')) {
-      const msg = document.createElement('div');
-      msg.className = 'chart-fallback';
-      msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);text-align:center;padding:10px;';
-      msg.textContent = 'Chart.js failed to load from the CDN — check your network/ad-blocker. Data itself loaded fine.';
-      wrap.style.position = 'relative';
-      wrap.appendChild(msg);
-    }
-  },
-  line(canvasId, labels, data, color, label, opts) {
-    if (typeof Chart === 'undefined') { this._unavailable(canvasId); return; }
-    opts = opts || {};
-    this.destroy(canvasId);
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    const ink = this.cssVar('--ink-faint');
-    this.instances[canvasId] = new Chart(ctx, {
+  lines(id, labels, sets, yFmt) {
+    if (!this.ok(id)) return; this.destroy(id);
+    const ink = this.css('--ink-faint');
+    this.instances[id] = new Chart(document.getElementById(id), {
       type: 'line',
-      data: { labels, datasets: [{ label, data, borderColor: color, backgroundColor: color + '33', fill: true, tension: .35, pointRadius: 0, borderWidth: 2 }] },
+      data: { labels, datasets: sets.map((s) => ({ label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.color + '22', fill: !!s.fill, tension: 0.3, pointRadius: 0, borderWidth: 2, borderDash: s.dash || [], yAxisID: s.axis || 'y', spanGaps: false })) },
       options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: sets.length > 1, labels: { color: ink, boxWidth: 10, font: { size: 10 } } } },
         scales: {
-          x: { ticks: { color: ink, font: { size: 9 } }, grid: { display: false } },
-          y: { ticks: { color: ink, font: { size: 9 }, callback: (v) => Calc.fn(v) }, grid: { color: this.cssVar('--border') } },
+          x: { ticks: { color: ink, font: { size: 9 }, maxTicksLimit: 8 }, grid: { display: false } },
+          y: { ticks: { color: ink, font: { size: 9 }, callback: yFmt || ((v) => Fmt.n(v)) }, grid: { color: this.css('--border') } },
+          ...(sets.some((s) => s.axis === 'y2') ? { y2: { position: 'right', ticks: { color: ink, font: { size: 9 } }, grid: { display: false } } } : {}),
         },
       },
     });
   },
-  bar(canvasId, labels, data, color) {
-    if (typeof Chart === 'undefined') { this._unavailable(canvasId); return; }
-    this.destroy(canvasId);
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    const ink = this.cssVar('--ink-faint');
-    this.instances[canvasId] = new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ data, backgroundColor: color, borderRadius: 4, maxBarThickness: 34 }] },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: ink, font: { size: 9 } }, grid: { display: false } },
-          y: { ticks: { color: ink, font: { size: 9 } }, grid: { color: this.cssVar('--border') } },
-        },
-      },
-    });
-  },
-  radar(canvasId, labels, data, color) {
-    if (typeof Chart === 'undefined') { this._unavailable(canvasId); return; }
-    this.destroy(canvasId);
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    const ink = this.cssVar('--ink-faint');
-    this.instances[canvasId] = new Chart(ctx, {
-      type: 'radar',
-      data: { labels, datasets: [{ data, borderColor: color, backgroundColor: color + '33', pointRadius: 2 }] },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { r: { ticks: { display: false }, grid: { color: this.cssVar('--border') }, angleLines: { color: this.cssVar('--border') }, pointLabels: { color: ink, font: { size: 9 } } } },
-      },
+  bar(id, labels, data, color) {
+    if (!this.ok(id)) return; this.destroy(id);
+    const ink = this.css('--ink-faint');
+    this.instances[id] = new Chart(document.getElementById(id), {
+      type: 'bar', data: { labels, datasets: [{ data, backgroundColor: color, borderRadius: 4, maxBarThickness: 40 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: ink, font: { size: 9 } }, grid: { display: false } }, y: { ticks: { color: ink, font: { size: 9 }, callback: (v) => '$' + Fmt.n(v) }, grid: { color: this.css('--border') } } } },
     });
   },
 };
 
-/* ============================= RENDERER ============================= */
+const Fmt = {
+  n(n) { if (n == null || isNaN(n)) return '—'; const a = Math.abs(n); if (a >= 1e9) return (n / 1e9).toFixed(1) + 'B'; if (a >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (a >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return (Math.round(n * 10) / 10).toString(); },
+  month(yyyymm) { const y = +yyyymm.slice(0, 4), m = +yyyymm.slice(4, 6) - 1; return new Date(y, m, 1).toLocaleString('default', { month: 'short' }) + ' ' + String(y).slice(2); },
+  monthsFrom(start, n) { return Array.from({ length: n }, (_, i) => Fmt.month(E.addMonths(start, i).replace('-', ''))); },
+};
+
+const STAGE_COL = {
+  exploding: { bg: 'var(--rd-bg)', tx: 'var(--rd-t)' }, rising: { bg: 'var(--am-bg)', tx: 'var(--am-t)' },
+  emerging: { bg: 'var(--gn-bg)', tx: 'var(--gn-t)' }, steady: { bg: 'var(--bl-bg)', tx: 'var(--bl-t)' },
+  peaking: { bg: 'var(--pu-bg)', tx: 'var(--pu-t)' }, declining: { bg: 'var(--surface-alt)', tx: 'var(--ink-soft)' },
+};
+const riskCol = (r) => r === 'Low' ? { bg: 'var(--gn-bg)', tx: 'var(--gn-t)' } : r === 'High' ? { bg: 'var(--rd-bg)', tx: 'var(--rd-t)' } : { bg: 'var(--am-bg)', tx: 'var(--am-t)' };
+
+/* ----------------------------- PLAIN-ENGLISH VERDICT (no AI needed) ----------------------------- */
+function ruleVerdict(product, score, m, conf) {
+  if (!m) return `Not enough data to judge ${product}. Try a more common name, or choose the Wikipedia article under "Advanced".`;
+  const yoy = m.yoy != null ? `Interest is ${pctTxt(m.yoy)} vs a year ago` : `Interest changed ${pctTxt(m.growth3m)} over the last 3 months`;
+  const map = {
+    exploding: 'a strong, sustained rise — one of the clearest signals this tool gives.',
+    rising: 'a clear upward trend that has held for months.',
+    emerging: 'early signs of growth; worth watching but not yet proven.',
+    steady: 'no strong movement — a mature or niche product right now.',
+    peaking: 'it was hot recently but is losing steam — be careful entering now.',
+    declining: 'demand is shrinking — not an early trend.',
+  };
+  return `${yoy}: ${map[score.stage.key]} Confidence: ${conf.toLowerCase()}.`;
+}
+
+/* ----------------------------- RENDERER ----------------------------- */
 const DashboardRenderer = {
-  log(m, t) {
-    t = t || 'inf';
-    const el = document.getElementById('logarea');
-    el.style.display = 'block';
-    const d = document.createElement('div');
-    d.className = t; d.textContent = '› ' + m;
-    el.appendChild(d); el.scrollTop = el.scrollHeight;
-  },
-
-  setStatus(t) { document.getElementById('stxt').textContent = t; },
+  log(m, t) { const el = document.getElementById('logarea'); el.style.display = 'block'; const d = document.createElement('div'); d.className = t || 'inf'; d.textContent = '› ' + m; el.appendChild(d); el.scrollTop = el.scrollHeight; },
   clearLog() { document.getElementById('logarea').innerHTML = ''; },
-
-  showSimBanner(anySimulated, allSimulated) {
-    const slot = document.getElementById('sim-banner-slot');
-    if (!anySimulated) { slot.innerHTML = ''; return; }
-    slot.innerHTML = `<div class="sim-banner">⚠ ${allSimulated ? 'ALL sections below are ESTIMATED / SIMULATED DATA' : 'SOME sections below are ESTIMATED / SIMULATED DATA'} — not from live sources. See per-section labels.</div>`;
+  setStatus(t) { document.getElementById('stxt').textContent = t; },
+  showResults() {
+    document.getElementById('results').style.display = 'block'; document.getElementById('empty').style.display = 'none';
   },
 
-  renderOverview(product, location, prob, tag, oneLiner, metricsData) {
-    document.getElementById('ov-title').textContent = `${product} — ${location}`;
-    const ovtag = document.getElementById('ov-tag');
-    ovtag.textContent = tag.l; ovtag.style.background = tag.bg; ovtag.style.color = tag.tx;
-    document.getElementById('metrics').innerHTML = metricsData.map(m => `<div class="mc">
-      <div class="mc-l">${m.l}</div><div class="mc-v">${m.v}</div><div class="mc-d" style="color:${m.dc}">${m.d}</div>
-    </div>`).join('');
-    document.getElementById('pbig').textContent = prob + '%';
-    document.getElementById('one-liner').textContent = oneLiner;
+  overview(p) {
+    document.getElementById('ov-title').textContent = `${p.product} — ${p.location}`;
+    const tag = document.getElementById('ov-tag'); const sc = STAGE_COL[p.score.stage.key];
+    tag.textContent = p.score.stage.l; tag.style.background = sc.bg; tag.style.color = sc.tx;
+    document.getElementById('pbig').textContent = p.score.total;
+    document.getElementById('one-liner').textContent = p.verdict;
+    const cp = document.getElementById('confPill');
+    cp.textContent = 'Confidence: ' + p.confidence;
+    const cc = p.confidence === 'High' ? riskCol('Low') : p.confidence === 'Medium' ? riskCol('Medium') : riskCol('High');
+    cp.style.background = cc.bg; cp.style.color = cc.tx;
+    document.getElementById('stageDesc').textContent = p.score.stage.desc;
+    document.getElementById('flags').innerHTML = (p.score.flags || []).map((f) => `<div class="flag"><span>⚠</span><span>${esc(f)}</span></div>`).join('');
+    const m = p.metrics || {};
+    const tiles = [
+      { l: 'vs a year ago', v: pctTxt(m.yoy), d: 'last 3 months', tip: 'Last 3 months compared with the same 3 months last year. Cancels out seasons.' },
+      { l: '12-month trend', v: pctTxt(m.growth12m), d: 'this year vs last', tip: 'Average of the last 12 months vs the 12 before.' },
+      { l: 'Import growth', v: p.trade.available ? (p.trade.growth > 0 ? '+' : '') + p.trade.growth + '%' : '—', d: p.trade.available ? `${p.trade.latestYear} vs ${p.trade.latestYear - 1}` : (p.trade.reason || 'n/a'), tip: 'Change in import value, latest full year (UN Comtrade).' },
+      { l: 'HS code', v: p.hs.code || '—', d: p.hs.source, tip: 'Customs product code used to look up trade data.' },
+    ];
+    document.getElementById('metrics').innerHTML = tiles.map((t) => `<div class="mc"><div class="mc-l" data-tip="${esc(t.tip)}">${t.l}</div><div class="mc-v" style="font-size:17px;">${esc(t.v)}</div><div class="mc-d" style="color:var(--ink-faint)">${esc(t.d)}</div></div>`).join('');
   },
 
-  renderOpportunity(opp) {
-    document.getElementById('oppBars').innerHTML = opp.breakdown.map(b => `
+  breakdown(score) {
+    const cols = { yoy: 'var(--bl)', t12: 'var(--gn)', g24: 'var(--pu)', con: 'var(--am)', mom: 'var(--bl)', trade: 'var(--gn)' };
+    document.getElementById('oppBars').innerHTML = score.parts.map((b) => `
       <div class="score-bar-row">
-        <div class="lbl"><span data-tip="${b.note}">${b.label}</span><span>${b.points}/${b.max}</span></div>
-        <div class="bw"><div class="bf" style="width:${(b.points / b.max) * 100}%;background:${b.color}"></div></div>
+        <div class="lbl"><span data-tip="${esc(b.note)}">${b.label}</span><span>${b.points == null ? '<span class="off-badge">no data</span>' : b.points + '/' + b.max}</span></div>
+        <div class="bw"><div class="bf" style="width:${b.points == null ? 0 : (b.points / b.max) * 100}%;background:${cols[b.key]}"></div></div>
       </div>`).join('');
-    ChartManager.radar('oppRadar', opp.breakdown.map(b => b.label), opp.breakdown.map(b => Math.round((b.points / b.max) * 100)), ChartManager.cssVar('--bl'));
   },
 
-  renderProfitability(margin) {
-    const pctEl = document.getElementById('marginPct');
-    const absEl = document.getElementById('marginAbs');
-    if (!margin) { pctEl.textContent = '—'; absEl.textContent = 'enter a price'; return; }
-    pctEl.textContent = margin.marginPct + '%';
-    absEl.textContent = 'margin amount: ' + margin.marginAbs.toLocaleString();
+  sources(p) {
+    const badge = (s) => s.simulated ? '<span class="sim-badge">demo</span>' : s.available ? '<span class="live-badge">live</span>' : s.off ? '<span class="off-badge">not set up</span>' : '<span class="off-badge">no data</span>';
+    const rows = [
+      { n: 'Wikipedia interest', s: p.wiki, d: p.wiki.available ? `Monthly reader interest in the article "${p.wiki.title}" since ${Fmt.month(p.wiki.start)}, adjusted for Wikipedia's overall traffic. Global, not country-specific. Note: Wikipedia visits are drifting down as people use AI search, so Google Trends (if enabled) is the cleaner signal.` : p.wiki.reason, v: p.wiki.available ? pctTxt(p.wikiMetrics?.yoy) + ' YoY' : '—' },
+      { n: 'Google Trends (search)', s: p.trends, d: p.trends.available ? 'Monthly Google search interest, last 5 years, in ' + p.location + '.' : (p.trends.reason || '') + ' — add SERPAPI_KEY to enable.', v: p.trends.available ? pctTxt(p.trendsMetrics?.yoy) + ' YoY' : '—' },
+      { n: 'YouTube creators', s: p.yt, d: p.yt.available ? `${p.yt.uploadsLast30d} new videos in the last 30 days vs ${p.yt.uploadsSame30dLastYear} in the same 30 days last year${p.yt.estimated ? ' (estimated)' : ''}. New videos get ~${Fmt.n(p.yt.medianViewsPerDayNewVideos)} views/day.` : (p.yt.reason || ''), v: p.yt.available ? (p.yt.uploadGrowth > 0 ? '+' : '') + p.yt.uploadGrowth + '%' : '—' },
+      { n: 'UN Comtrade imports', s: p.trade, d: p.trade.available ? `Import value into ${p.location}, HS ${p.hs.code}, ${p.trade.series.map((x) => x.year).join(', ')}.` : (p.trade.reason || ''), v: p.trade.available ? (p.trade.growth > 0 ? '+' : '') + p.trade.growth + '%' : '—' },
+      { n: 'AI write-up', s: { available: !!p.ai, off: p.aiOff, simulated: false }, d: p.ai ? 'Verdict text, market estimates, materials, exporters, companies. Does not change the score.' : (p.aiReason || ''), v: p.ai ? 'on' : '—' },
+    ];
+    document.getElementById('sigs').innerHTML = rows.map((r) => `<div class="src-row"><div style="flex:1"><div class="nm">${r.n} ${badge(r.s)}</div><div class="ds">${esc(r.d)}</div></div><div class="vl">${esc(r.v)}</div></div>`).join('');
+    document.getElementById('sig-sum').textContent = (p.sourcesUsed || []).join(' + ') || 'no time-series data';
   },
 
-  renderSaturation(sat) {
-    document.getElementById('satLabel').textContent = sat.label;
-    document.getElementById('satDetail').textContent = sat.detail;
-    document.getElementById('satMarker').style.left = sat.pct + '%';
+  renderCharts(p) {
+    // Interest over time — REAL data only (no invented curves)
+    const badge = document.getElementById('ytHistBadge');
+    if (p.wiki.available || p.trends.available) {
+      const months = 48;
+      
+      const first = E.addMonths(Wiki.lastFullMonth(), -(months - 1)).replace('-', '');
+      const monthsBetween = (x, y) => (+y.slice(0, 4) - +x.slice(0, 4)) * 12 + (+y.slice(4, 6) - +x.slice(4, 6));
+      const align = (src) => {
+        const out = Array(months).fill(null);
+        src.values.forEach((v, i) => { const k = monthsBetween(first, E.addMonths(src.start, i).replace('-', '')); if (k >= 0 && k < months) out[k] = Math.round(v * 10) / 10; });
+        return out;
+      };
+      const sets = [];
+      if (p.wiki.available) sets.push({ label: 'Wikipedia interest (relative)', data: align(p.wiki), color: this.css('--bl'), fill: true });
+      if (p.trends.available) sets.push({ label: 'Google search (0–100)', data: align(p.trends), color: this.css('--rd'), axis: 'y2' });
+      ChartManager.lines('interestChart', Fmt.monthsFrom(first, months), sets);
+      badge.innerHTML = p.wiki.simulated ? '<span class="sim-badge">demo</span>' : '<span class="live-badge">real data</span>';
+      document.getElementById('wikiNote').textContent = p.wiki.available ? `Tracking Wikipedia article: "${p.wiki.title}". Wrong article? Set it under "Advanced" above the results.` : '';
+    } else {
+      ChartManager.destroy('interestChart');
+      badge.innerHTML = '<span class="off-badge">no data</span>';
+      document.getElementById('wikiNote').textContent = 'No interest history found for this name. Try a more common name, or set the Wikipedia article under "Advanced".';
+    }
+    const tb = document.getElementById('tradeHistBadge');
+    if (p.trade.available) {
+      ChartManager.bar('tradeHistChart', p.trade.series.map((x) => String(x.year)), p.trade.series.map((x) => x.value), this.css('--gn'));
+      tb.innerHTML = p.trade.simulated ? '<span class="sim-badge">demo</span>' : '<span class="live-badge">real data</span>';
+    } else { ChartManager.destroy('tradeHistChart'); tb.innerHTML = `<span class="off-badge">${esc(p.trade.reason || 'no data')}</span>`; }
+  },
+  css(n) { return ChartManager.css(n); },
+
+  business(p) {
+    const yt = p.yt;
+    if (yt.available) {
+      const u = yt.uploadsLast30d; let label, pct;
+      if (u < 20) { label = 'Quiet — few creators'; pct = 12; } else if (u < 100) { label = 'Moderate'; pct = 38; } else if (u < 400) { label = 'Busy'; pct = 65; } else { label = 'Crowded'; pct = 90; }
+      document.getElementById('satLabel').textContent = label;
+      document.getElementById('satMarker').style.left = pct + '%';
+      document.getElementById('satDetail').textContent = `~${u} new videos/month · new videos get ~${Fmt.n(yt.medianViewsPerDayNewVideos)} views/day`;
+    } else {
+      document.getElementById('satLabel').textContent = '—'; document.getElementById('satMarker').style.left = '0%';
+      document.getElementById('satDetail').textContent = yt.reason || 'needs YouTube key';
+    }
+    document.getElementById('mktSize').textContent = p.trade.available ? '$' + Fmt.n(p.trade.latestValue) : '—';
+    document.getElementById('mktSizeD').textContent = p.trade.available ? `${p.trade.latestYear}, UN Comtrade${p.trade.simulated ? ' (demo)' : ''}` : (p.trade.reason || '—');
+    document.getElementById('aiMkt').textContent = p.ai?.marketSizeUSD ? '$' + Fmt.n(p.ai.marketSizeUSD) : '—';
+    document.getElementById('avgPrice').textContent = p.ai?.avgPriceUSD ? '$' + Fmt.n(p.ai.avgPriceUSD) : '—';
   },
 
-  renderSignals(rows) {
-    document.getElementById('sig-sum').textContent = rows[0]?.headline || '—';
-    document.getElementById('sigs').innerHTML = rows.map(s => `<div class="row">
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:600;color:var(--ink)">${s.n} ${s.badge}</div>
-        <div style="font-size:10px;color:var(--ink-faint)">${s.note}</div>
-        <div class="bw"><div class="bf" style="width:${Math.max(s.s, 4)}%;background:${s.c}"></div></div>
-      </div>
-      <div style="font-size:13px;font-weight:600;color:${s.c};min-width:50px;text-align:right">${s.v}</div>
-    </div>`).join('');
+  profitability(mg) {
+    const pctEl = document.getElementById('marginPct'), absEl = document.getElementById('marginAbs');
+    if (!mg) { pctEl.textContent = '—'; absEl.textContent = 'enter price and cost'; pctEl.style.color = ''; return; }
+    pctEl.textContent = mg.marginPct + '%';
+    pctEl.style.color = mg.marginPct >= 30 ? 'var(--gn)' : mg.marginPct >= 10 ? 'var(--am)' : 'var(--rd)';
+    absEl.textContent = `profit per unit: ${mg.profit.toLocaleString()} (after ${mg.overhead.toLocaleString()} other costs)`;
   },
 
-  renderHistoryCharts(ytSeries, ytModeled, tradeSeries, tradeModeled) {
-    document.getElementById('ytHistBadge').innerHTML = ytModeled ? '<span class="mod-badge">modeled</span>' : '<span class="live-badge">live</span>';
-    document.getElementById('tradeHistBadge').innerHTML = tradeModeled ? '<span class="mod-badge">modeled</span>' : '<span class="live-badge">live</span>';
-    const months = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleString('default', { month: 'short' }));
-    ChartManager.line('ytHistChart', months, ytSeries, ChartManager.cssVar('--bl'), 'YouTube views');
-    ChartManager.line('tradeHistChart', months, tradeSeries, ChartManager.cssVar('--gn'), 'Import value');
+  aiLoading() {
+    const sk = '<div class="skel" style="height:16px;margin-bottom:6px;"></div><div class="skel" style="height:16px;width:70%;"></div>';
+    ['rmflows', 'explist', 'colist', 'scsteps'].forEach((id) => { document.getElementById(id).innerHTML = sk; });
+    ['rm-sum', 'exp-sum', 'inv-sum', 'sc-sum'].forEach((id) => { document.getElementById(id).textContent = 'writing…'; });
   },
 
-  renderPriceMarket(pm) {
-    document.getElementById('pm-sum').textContent = pm.marketSizeLabel || '—';
-    document.getElementById('mktSize').textContent = pm.marketSizeLabel || '—';
-    document.getElementById('mktSizeD').textContent = pm.simulated ? 'estimated / simulated' : 'derived from import value';
-    document.getElementById('priceTrendDir').textContent = pm.direction;
-    document.getElementById('priceTrendD').textContent = pm.directionDetail;
-    document.getElementById('avgPrice').textContent = pm.avgPriceLabel;
-    const months = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleString('default', { month: 'short' }));
-    ChartManager.line('priceChart', months, pm.series, ChartManager.cssVar('--pu'), 'Indicative price index');
+  aiSections(p) {
+    const ai = p.ai; const none = (t) => `<div class="muted" style="padding:8px 0">${t}</div>`;
+    const why = p.aiOff ? 'AI is not set up (add ANTHROPIC_API_KEY on the server).' : `AI unavailable: ${esc(p.aiReason || 'unknown')}`;
+    const rms = ai?.rawMaterials || [];
+    document.getElementById('rm-sum').textContent = rms.length ? rms.slice(0, 2).map((r) => r.name).join(', ') : '—';
+    document.getElementById('rmflows').innerHTML = rms.length ? rms.map((rm) => `
+      <div style="margin-bottom:12px;"><div style="font-size:12px;font-weight:600;margin-bottom:6px;">${esc(rm.name)} <span style="font-size:10px;color:var(--am-t);font-weight:400;">${esc(rm.pct)}% of cost · ${esc(rm.priceTrend || '')}</span></div>
+      <div class="flow-row">${(rm.topProducers || []).map((x) => `<div class="flow-node">${esc(x.flag || '🌐')}<br>${esc(x.country)}<br>${esc(x.share)}%</div><span class="flow-arrow">→</span>`).join('')}<div class="flow-node final">${esc(p.product)}</div></div></div>`).join('') : none(why);
+    const ex = ai?.exporters || [];
+    document.getElementById('exp-sum').textContent = ex.length ? `#1 ${ex[0].flag || ''} ${ex[0].country} ~${ex[0].share}%` : '—';
+    document.getElementById('explist').innerHTML = ex.length ? ex.map((e, i) => `<div class="row"><span style="width:18px;text-align:center">${esc(e.flag || '🌐')}</span><span style="font-size:12px;flex:0 0 110px">${esc(e.country)}</span><div style="flex:1;height:5px;background:var(--track-bg);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.min(+e.share || 0, 100)}%;background:${i === 0 ? 'var(--bl)' : 'var(--bl-bg)'}"></div></div><span style="font-size:11px;font-weight:600;color:var(--bl-t);min-width:34px;text-align:right">~${esc(e.share)}%</span></div>`).join('') : none(why);
+    if (ai && ai.scRawMat != null) {
+      const sc = { raw: +ai.scRawMat || 0, prod: +ai.scProduction || 0, ship: +ai.scShipping || 0, mktg: +ai.scMarketing || 0 }; const tot = sc.raw + sc.prod + sc.ship + sc.mktg;
+      document.getElementById('sc-sum').textContent = '+' + tot + '% total';
+      document.getElementById('scsteps').innerHTML = [['⛏', 'Raw materials', sc.raw, 'var(--bl-bg)'], ['🏭', 'Production', sc.prod, 'var(--gn-bg)'], ['🚢', 'Shipping', sc.ship, 'var(--am-bg)'], ['📣', 'Marketing', sc.mktg, 'var(--am-bg)']].map(([ic, n, v, bg]) => `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:5px;background:${bg}"><span style="width:24px;text-align:center">${ic}</span><div style="flex:1;font-size:12px;font-weight:600;">${n}</div><div style="font-size:13px;font-weight:600;color:var(--am-t)">+${v}%</div></div>`).join('');
+    } else { document.getElementById('sc-sum').textContent = '—'; document.getElementById('scsteps').innerHTML = none(why); }
+    const cos = ai?.companies || [];
+    document.getElementById('inv-sum').textContent = cos.length ? cos.length + ' companies' : '—';
+    document.getElementById('colist').innerHTML = cos.length ? cos.map((co) => { const rc = riskCol(co.risk || 'Medium'); return `<div class="co-row"><div style="display:flex;justify-content:space-between;"><div><div style="font-size:13px;font-weight:600">${esc(co.name)}</div><div class="muted">${esc(co.oneLiner || '')}</div></div><div style="text-align:right;margin-left:10px;"><div style="font-size:10px;font-family:ui-monospace,monospace;background:var(--bl-bg);color:var(--bl-t);padding:2px 7px;border-radius:4px;">${esc(co.ticker || '—')}</div><div class="muted">${esc(co.mktCap || '')}</div></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;"><span class="tag" style="background:${rc.bg};color:${rc.tx}">Risk: ${esc(co.risk)}</span><span style="font-size:11px;color:var(--ink-soft)">${esc(co.thesis || '')}</span></div></div>`; }).join('') : none(why);
+    document.getElementById('inv-thesis').textContent = ai?.thesis || '—';
   },
 
-  renderRawMaterialsFlow(rawMaterials, product, simulated) {
-    document.getElementById('rm-sum').textContent = rawMaterials.length ? rawMaterials.slice(0, 2).map(r => r.name).join(', ') : 'No AI data — proxy not configured';
-    if (!rawMaterials.length) {
-      document.getElementById('rmflows').innerHTML = `<div style="font-size:11px;color:var(--ink-faint);padding:8px 0">No raw material breakdown available (AI proxy not configured).</div>`;
+  risks(r) {
+    document.getElementById('risk-sum').textContent = `Supply ${r.supply} · Geo ${r.geo} · Reg ${r.regulatory}`;
+    const labels = { supply: 'Supply risk', geo: 'Geographic risk', regulatory: 'Regulatory risk' };
+    document.getElementById('riskGauges').innerHTML = ['supply', 'geo', 'regulatory'].map((k) => { const c = riskCol(r[k]); return `<div class="risk-gauge"><div style="font-size:10px;color:var(--ink-faint)">${labels[k]}</div><div class="rv" style="color:${c.tx};background:${c.bg};padding:3px 12px;border-radius:20px;">${esc(r[k])}</div></div>`; }).join('');
+    document.getElementById('riskNotes').textContent = r.notes;
+  },
+  gaps(list) { document.getElementById('gapList').innerHTML = list.map((g, i) => `<div class="gap-item"><span class="gi">${i + 1}.</span><span>${esc(g)}</span></div>`).join(''); },
+  related(items) { document.getElementById('relatedChips').innerHTML = items.map((i) => `<span class="chip" onclick="ProductDB.pick(${ProductDB.items.indexOf(i)})">${i.em} ${esc(i.name)}</span>`).join(''); },
+  banner(sim) { document.getElementById('sim-banner-slot').innerHTML = sim ? '<div class="sim-banner">⚠ DEMO MODE — the numbers below are made-up examples, not real data.</div>' : ''; },
+};
+
+/* ----------------------------- RISKS & GAPS (rule-based fallbacks) ----------------------------- */
+function heuristicRisks(exporters, category) {
+  const top = exporters[0]?.share || 0;
+  return {
+    supply: !exporters.length ? 'Medium' : top > 50 ? 'High' : top > 30 ? 'Medium' : 'Low',
+    geo: !exporters.length ? 'Medium' : exporters.length >= 5 ? 'Low' : 'Medium',
+    regulatory: { Health: 'High', Food: 'Medium', Energy: 'Medium', Materials: 'Medium' }[category] || 'Low',
+    notes: exporters.length ? `Rough rule-of-thumb: supply risk from how concentrated exporting is (top country ~${top}%), regulatory risk from the product category.` : 'Rough default ratings — turn on the AI write-up for product-specific risks.',
+  };
+}
+function heuristicGaps(product, p) {
+  const g = [];
+  const m = p.metrics;
+  if (m && m.yoy > 0.3 && p.yt.available && p.yt.uploadsLast30d < 100) g.push(`Interest is up ${pctTxt(m.yoy)} but only ~${p.yt.uploadsLast30d} new YouTube videos a month — few creators/sellers are covering it yet.`);
+  if (p.trade.available && p.trade.growth > 20) g.push(`Imports grew ${p.trade.growth}% in ${p.trade.latestYear} — buyers are actively sourcing ${product}; a window for new suppliers or distributors.`);
+  if (m && m.yoy != null && m.yoy < 0) g.push(`Overall interest is falling, so compete on a niche (a specific use, audience or price point) rather than the general product.`);
+  g.push(`Comparison and buyer-guide content ("${product} vs …", "best ${product} for …") is usually thinner than general coverage.`);
+  return g;
+}
+
+/* ----------------------------- CONTROLLER ----------------------------- */
+const Controller = {
+  async run() {
+    const product = document.getElementById('pinput').value.trim();
+    if (!product) return;
+    const sel = document.getElementById('country');
+    const c = COUNTRIES.find((x) => x.ct === sel.value) || COUNTRIES[0];
+    DashboardRenderer.clearLog();
+    document.getElementById('sbtn').disabled = true; document.getElementById('pdfBtn').disabled = true;
+    DashboardRenderer.setStatus(`Analysing "${product}"…`);
+    try { await this._run(product, c); }
+    catch (err) { DashboardRenderer.log('Error: ' + (err.message || err), 'er'); DashboardRenderer.setStatus('Failed — see log'); console.error(err); }
+    finally { document.getElementById('sbtn').disabled = false; }
+  },
+
+  async _run(product, c) {
+    const location = c.n;
+    const manualHs = document.getElementById('hsOverride').value.trim();
+    let hs = manualHs ? { code: manualHs, source: 'entered' } : (() => { const m = E.matchHS(product); return m.matched ? { code: m.code, source: 'matched "' + m.phrase + '"' } : { code: null, source: 'not matched' }; })();
+    const category = ProductDB.find(product)?.cat;
+    const wikiOverride = document.getElementById('wikiOverride').value.trim();
+
+    DashboardRenderer.log(`"${product}" · ${location} · fetching data…`);
+    const [wiki, trends, yt, trade0] = await Promise.all([
+      Wiki.fetch(product, wikiOverride),
+      ApiService.trends(product, c.iso),
+      ApiService.youtube(product, c.iso),
+      ApiService.comtrade(hs.code, c.ct, product),
+    ]);
+    let trade = trade0;
+    const lg = (name, s, ok) => DashboardRenderer.log(`${name}: ${s.simulated ? 'demo data' : s.available ? ok : (s.reason || 'unavailable')}`, s.available ? (s.simulated ? 'wa' : 'ok') : 'er');
+    lg('Wikipedia', wiki, `"${wiki.title}", ${wiki.values?.length} months`);
+    lg('Google Trends', trends, `${trends.values?.length} months`);
+    lg('YouTube', yt, `${yt.uploadsLast30d} uploads in 30 days`);
+    lg('Trade', trade, `${trade.growth}% (${trade.latestYear})`);
+
+    const p = { version: 7, product, location, hs, wiki, trends, yt, trade, ai: null, aiOff: false, aiReason: '' };
+    this.compute(p);
+    DashboardRenderer.banner(State.simulationForced);
+    this.renderAll(p, category);
+    DashboardRenderer.showResults();
+    DashboardRenderer.aiLoading();
+    DashboardRenderer.setStatus(`${product} · score ready, writing AI summary…`);
+
+    // Phase 2: AI write-up, grounded in the measured numbers
+    const signals = {
+      trendScore: p.score.total, stage: p.score.stage.l, confidence: p.confidence,
+      interestVsYearAgo: pctTxt(p.metrics?.yoy), interest12mTrend: pctTxt(p.metrics?.growth12m), interestVs2YearsAgo: pctTxt(p.metrics?.g24),
+      importGrowth: trade.available ? trade.growth + '% in ' + trade.latestYear : 'n/a',
+      youtubeNewVideos30d: yt.available ? yt.uploadsLast30d : 'n/a', youtubeUploadGrowth: yt.available ? yt.uploadGrowth + '%' : 'n/a',
+      warnings: p.score.flags,
+    };
+    const aiRes = await ApiService.ai(product, location, signals);
+    p.ai = aiRes.data; p.aiOff = !!aiRes.off; p.aiReason = aiRes.reason || '';
+    DashboardRenderer.log(p.ai ? 'AI write-up loaded' : 'AI write-up: ' + p.aiReason, p.ai ? 'ok' : 'er');
+
+    // If we had no HS code, use the AI's suggestion to fetch trade data now.
+    if (!hs.code && p.ai?.hsCode && /^\d{4,6}$/.test(String(p.ai.hsCode))) {
+      p.hs = { code: String(p.ai.hsCode).slice(0, 4), source: 'AI-suggested' };
+      DashboardRenderer.log(`Trying trade data with AI-suggested HS ${p.hs.code}…`);
+      p.trade = await ApiService.comtrade(p.hs.code, c.ct, product);
+      lg('Trade', p.trade, `${p.trade.growth}% (${p.trade.latestYear})`);
+      this.compute(p);
+    }
+    if (p.ai?.oneLiner) p.verdict = p.ai.oneLiner;
+    this.renderAll(p, category);
+    DashboardRenderer.aiSections(p);
+    State.currentPayload = p;
+    document.getElementById('pdfBtn').disabled = false;
+    DashboardRenderer.setStatus(`${product} · ${new Date().toLocaleTimeString()}`);
+    DashboardRenderer.log(`Trend Score ${p.score.total} (${p.score.stage.l}), confidence ${p.confidence}`, 'ok');
+    await RecentAnalyses.save(p);
+  },
+
+  compute(p) {
+    const sources = [];
+    if (p.wiki.available) { p.wikiMetrics = E.analyzeSeries(p.wiki.values); sources.push({ name: 'Wikipedia', weight: 1, metrics: p.wikiMetrics }); }
+    if (p.trends.available) { p.trendsMetrics = E.analyzeSeries(p.trends.values); sources.push({ name: 'Google Trends', weight: 1.3, metrics: p.trendsMetrics }); }
+    if (p.yt.available && !p.yt.simulated) {
+      // YouTube gives one number (upload growth vs a year ago), used as a light extra "year-on-year" vote.
+      sources.push({ name: 'YouTube', weight: 0.5, metrics: { ok: true, months: 12, yoy: Math.max(-0.95, Math.min(5, p.yt.uploadGrowth / 100)), growth3m: null, growth12m: null, g24: null, acceleration: null, fromPeak: null } });
+    }
+    const comb = E.combine(sources);
+    if (comb) {
+      p.metrics = comb.metrics; p.confidence = comb.confidence; p.sourcesUsed = comb.sourcesUsed;
+      p.score = E.scoreTrend(comb.metrics, { tradeGrowth: p.trade.available ? p.trade.growth : null });
+      if (p.wiki.simulated) p.confidence = 'Demo';
+    } else {
+      p.metrics = null; p.confidence = 'None'; p.sourcesUsed = [];
+      p.score = { total: 0, stage: E.STAGES.steady, parts: [], flags: ['No interest history was found, so no Trend Score could be calculated. Try another name or set the Wikipedia article under "Advanced".'] };
+    }
+    p.verdict = ruleVerdict(p.product, p.score, p.metrics, p.confidence);
+  },
+
+  renderAll(p, category) {
+    DashboardRenderer.overview(p);
+    DashboardRenderer.breakdown(p.score);
+    DashboardRenderer.sources(p);
+    DashboardRenderer.renderCharts(p);
+    DashboardRenderer.business(p);
+    const risks = p.ai?.risks?.supply ? p.ai.risks : heuristicRisks(p.ai?.exporters || [], category);
+    p.risks = risks;
+    DashboardRenderer.risks(risks);
+    DashboardRenderer.gaps(p.ai?.contentGaps?.length ? p.ai.contentGaps : heuristicGaps(p.product, p));
+    DashboardRenderer.related(ProductDB.related(p.product));
+    this.recalcProfitability();
+  },
+
+  recalcProfitability() {
+    const mg = E.margin(document.getElementById('retailPrice').value, document.getElementById('unitCost').value, parseFloat(document.getElementById('otherPct').value) || 0);
+    DashboardRenderer.profitability(mg);
+  },
+
+  renderFromPayload(p) {
+    State.currentPayload = p;
+    DashboardRenderer.banner(!!p.wiki?.simulated);
+    this.renderAll(p, ProductDB.find(p.product)?.cat);
+    DashboardRenderer.aiSections(p);
+    DashboardRenderer.showResults();
+    document.getElementById('pdfBtn').disabled = false;
+    DashboardRenderer.setStatus(`${p.product} · loaded from recent`);
+  },
+};
+
+/* ----------------------------- ACCURACY TEST ----------------------------- */
+const BENCHMARK = ['Pickleball', 'Fidget spinner', 'Hoverboard', 'Semaglutide', 'E-bike', 'Kombucha', 'Oat milk', 'Cold brew coffee', 'Matcha', 'Bubble tea', 'Kimchi', 'Sourdough', 'Instant Pot', 'Squishmallows', 'Crocs', 'Electronic cigarette', 'Hard seltzer', 'Impossible Foods', 'Beyond Meat', 'Cannabidiol', 'Mitragyna speciosa', 'Hericium erinaceus', 'Withania somnifera', 'Collagen', 'Creatine', 'Heat pump', 'Solar panel', 'Induction cooking', 'Weighted blanket', 'Gua sha', 'Retinol', 'Nicotinamide', 'Labubu', 'Prime (drink)', 'Dalgona coffee', 'N95 respirator', 'Hand sanitizer', 'Standup paddleboarding', 'Kettlebell', 'Pilates', 'Sous vide', 'Kefir', 'Ghee', 'Quinoa', 'Chia seed', 'Moringa oleifera', 'Birria', 'Electric toothbrush', 'Air purifier', 'Smartwatch', 'Phonograph record', 'Instant camera', 'Standing desk', 'Tirzepatide', 'Spirulina (dietary supplement)', 'Pickled cucumber', 'Electric vehicle', 'E-reader', 'Virtual reality headset', 'Fitness tracker', 'Shilajit', 'Chondrus crispus', 'Protein bar', 'Siraitia grosvenorii'];
+
+const Accuracy = {
+  async loadSeries(names, onProgress) {
+    const totals = await Wiki.getTotals();
+    const out = {}; let done = 0;
+    const queue = names.slice();
+    const worker = async () => {
+      while (queue.length) {
+        const n = queue.shift();
+        try {
+          const title = await Wiki.resolve(n);
+          const s = title ? await Wiki.series(title) : null;
+          if (s && s.raw.length >= 36) out[n] = { start: s.start, values: E.normalize(s.raw, s.start, totals) };
+        } catch (e) { /* skip */ }
+        onProgress && onProgress(++done / names.length);
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    return out;
+  },
+
+  async run() {
+    const btn = document.getElementById('accBtn'); btn.disabled = true;
+    const prog = document.getElementById('accProg'), bar = document.getElementById('accBar');
+    prog.style.display = 'block'; bar.style.width = '0%';
+    document.getElementById('accOut').innerHTML = '<div class="muted">Downloading history for each product…</div>';
+    try {
+      const extra = document.getElementById('accExtra').value.split(',').map((s) => s.trim()).filter(Boolean);
+      const series = await this.loadSeries(BENCHMARK.concat(extra), (f) => { bar.style.width = Math.round(f * 100) + '%'; });
+      const bt = E.backtest(series, { step: 6, horizon: 12 });
+      const prevRaw = await StorageManager.get('accuracy:last');
+      const prev = prevRaw ? JSON.parse(prevRaw) : null;
+      this.render(bt.summary, prev);
+      await StorageManager.set('accuracy:last', JSON.stringify({ ...bt.summary, ts: Date.now() }));
+    } catch (e) {
+      document.getElementById('accOut').innerHTML = `<div class="flag">Could not run the test: ${esc(e.message || e)}. Check your internet connection.</div>`;
+    } finally { btn.disabled = false; prog.style.display = 'none'; }
+  },
+
+  render(s, prev) {
+    // Use strong calls (80+) when there are enough of them; otherwise fall back to all Rising/Exploding calls.
+    const useStrong = s.strongCalls >= 10;
+    const callRate = useStrong ? s.strongGrew : s.hitRate;
+    const callLabel = useStrong ? 'scored a product <b>80 or more</b>' : 'called a product <b>Rising or Exploding</b>';
+    if (callRate == null) {
+      document.getElementById('acc-sum').textContent = 'no strong calls in this test';
+      document.getElementById('accOut').innerHTML = `<div class="acc-head">Tested ${s.totalCases} past situations, but TrendForge never gave a strong signal, so there is nothing to grade yet. Add more products and run again.</div>`;
       return;
     }
-    document.getElementById('rmflows').innerHTML = rawMaterials.map(rm => `
-      <div style="margin-bottom:12px;">
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px;">${rm.name}
-          <span style="font-size:10px;color:var(--am-t);font-weight:400;">${rm.pct}% of cost · ${rm.priceTrend || ''}</span>
-          ${simulated ? '<span class="sim-badge">simulated</span>' : ''}
-        </div>
-        <div class="flow-row">
-          ${(rm.topProducers || []).map(p => `<div class="flow-node">${p.flag || '🌐'}<br>${p.country}<br>${p.share}%</div><span class="flow-arrow">→</span>`).join('')}
-          <div class="flow-node">${rm.name}</div>
-          <span class="flow-arrow">→</span>
-          <div class="flow-node final">${product}</div>
-        </div>
-      </div>`).join('');
-  },
-
-  renderExporters(exporters) {
-    document.getElementById('exp-sum').textContent = exporters.length ? `#1 ${exporters[0].flag || ''} ${exporters[0].country} ${exporters[0].share}%` : '—';
-    document.getElementById('explist').innerHTML = exporters.map((e, i) => `
-      <div class="row">
-        <span style="font-size:13px;width:18px;text-align:center">${e.flag || '🌐'}</span>
-        <span style="font-size:12px;color:var(--ink);flex:0 0 100px">${e.country}</span>
-        <div style="flex:1;height:5px;background:var(--track-bg);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${e.share || 20}%;background:${i === 0 ? 'var(--bl)' : 'var(--bl-bg)'};border-radius:3px"></div>
-        </div>
-        <span style="font-size:11px;font-weight:600;color:var(--bl-t);min-width:28px;text-align:right">${e.share || '?'}%</span>
-      </div>`).join('') || '<div style="font-size:11px;color:var(--ink-faint);padding:8px 0">No exporter data available.</div>';
-  },
-
-  renderSupplyChain(sc, simulated) {
-    const tot = sc.raw + sc.prod + sc.ship + sc.mktg;
-    document.getElementById('sc-sum').textContent = '+' + tot + '% total';
-    document.getElementById('scsteps').innerHTML = [
-      { icon: '⛏', n: 'Raw materials', p: sc.raw, bg: 'var(--bl-bg)' },
-      { icon: '🏭', n: 'Production', p: sc.prod, bg: 'var(--gn-bg)' },
-      { icon: '🚢', n: 'Shipping', p: sc.ship, bg: 'var(--am-bg)' },
-      { icon: '📣', n: 'Marketing', p: sc.mktg, bg: 'var(--am-bg)' },
-    ].map(s => `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:5px;background:${s.bg}">
-      <span style="font-size:14px;width:24px;text-align:center">${s.icon}</span>
-      <div style="flex:1;font-size:12px;font-weight:600;">${s.n} ${simulated ? '<span class="sim-badge">simulated</span>' : ''}</div>
-      <div style="font-size:13px;font-weight:600;color:var(--am-t)">+${s.p}%</div>
-    </div>`).join('') +
-    `<div style="display:flex;justify-content:space-between;padding:7px 10px 0;border-top:0.5px solid var(--border);margin-top:2px;">
-      <div style="font-size:11px;color:var(--ink-soft)">Total if demand explodes</div>
-      <div style="font-size:15px;font-weight:600;color:var(--ink)">+${tot}%</div>
-    </div>`;
-    return tot;
-  },
-
-  renderRisks(risks) {
-    document.getElementById('risk-sum').textContent = `Supply ${risks.supply} · Geo ${risks.geo} · Reg ${risks.regulatory}`;
-    document.getElementById('riskGauges').innerHTML = ['supply', 'geo', 'regulatory'].map(k => {
-      const val = risks[k];
-      const rc = Calc.riskCol(val);
-      const labels = { supply: 'Supply risk', geo: 'Geographic risk', regulatory: 'Regulatory risk' };
-      return `<div class="risk-gauge">
-        <div style="font-size:10px;color:var(--ink-faint)">${labels[k]}</div>
-        <div class="rv" style="color:${rc.tx};background:${rc.bg};padding:3px 12px;border-radius:20px;">${val}</div>
+    const lift = s.baseRateGrew ? (callRate / s.baseRateGrew) : 0;
+    const grade = lift >= 2.2 ? ['Good', 'var(--gn)'] : lift >= 1.5 ? ['Useful', 'var(--am)'] : ['Weak', 'var(--rd)'];
+    document.getElementById('acc-sum').innerHTML = `<b style="color:${grade[1]}">${grade[0]}</b> · ${lift.toFixed(1)}× better than random`;
+    const cmp = (k) => prev && prev[k] != null ? ` <span class="muted">(last run: ${prev[k]}%)</span>` : '';
+    document.getElementById('accOut').innerHTML = `
+      <div class="acc-head">
+        Tested <b>${s.totalCases}</b> past situations across <b>${s.products}</b> products.<br>
+        A random product grew 20%+ over the next year <b>${s.baseRateGrew}%</b> of the time.
+        When TrendForge ${callLabel}, it grew <b>${callRate}%</b> of the time —
+        <b style="color:${grade[1]}">${lift.toFixed(1)}× better than picking at random</b> (grade: ${grade[0]}).
+      </div>
+      <div class="g3">
+        <div class="mc"><div class="mc-l" data-tip="Of all times the score was 80+, how often interest grew 20%+ in the following 12 months.">Strong calls that worked</div><div class="mc-v">${s.strongGrew ?? '—'}%</div><div class="mc-d" style="color:var(--ink-faint)">${s.strongCalls} calls${cmp('strongGrew')}</div></div>
+        <div class="mc"><div class="mc-l" data-tip="Of all times the score was 80+, how often interest FELL 20%+ instead. Hot products are volatile.">Strong calls that reversed</div><div class="mc-v">${s.strongFell ?? '—'}%</div><div class="mc-d" style="color:var(--ink-faint)">random product: ${s.baseRateFell}%</div></div>
+        <div class="mc"><div class="mc-l" data-tip="Of all products that went on to grow 50%+ within a year, how many TrendForge had flagged beforehand (Emerging, Rising or Exploding).">Big winners spotted early</div><div class="mc-v">${s.caughtEarly ?? '—'}%</div><div class="mc-d" style="color:var(--ink-faint)">of ${s.bigWinners} big winners${cmp('caughtEarly')}</div></div>
+      </div>
+      <div class="g2" style="margin-top:8px;">
+        <div class="mc"><div class="mc-l" data-tip="Top 25% of situations ranked by the new Trend Score vs ranked by size (the v6 logic). Share that grew 20%+.">New engine — top picks that grew</div><div class="mc-v">${s.top25NewGrew}%</div></div>
+        <div class="mc"><div class="mc-l" data-tip="The old v6 logic rewarded products that were already big. Same test, ranking by size.">Old logic (bigger = better) — top picks that grew</div><div class="mc-v">${s.top25OldGrew}%</div></div>
+      </div>
+      <div style="font-size:11px;font-weight:600;margin-top:12px;">Does a higher score really mean more growth?</div>
+      <table class="tbl"><tr><th>Score</th><th>Situations</th><th>Typical change next year</th><th>Share that grew 20%+</th></tr>
+        ${s.buckets.map((b) => `<tr><td>${b.range}</td><td>${b.n}</td><td>${b.medianOutcome == null ? '—' : (b.medianOutcome > 0 ? '+' : '') + b.medianOutcome + '%'}</td><td>${b.grewPct == null ? '—' : b.grewPct + '%'}</td></tr>`).join('')}
+      </table>
+      <div class="muted" style="margin-top:8px;">
+        How to read this: if the score works, the bottom rows (high scores) should show more growth than the top rows.
+        "Typical" = the middle value. This test uses Wikipedia history only (the one source with 10 years of free data),
+        so it checks the core engine, not the AI text. Predicting trends is hard — even the best tools are right only part of the time;
+        what matters is doing clearly better than random. Run it again after any change to see if things got better or worse.
       </div>`;
-    }).join('');
-    document.getElementById('riskNotes').textContent = risks.notes;
   },
 
-  renderRelated(items, product) {
-    document.getElementById('relatedChips').innerHTML = items.map(i =>
-      `<span class="chip" onclick="ProductDB.pick('${i.name.replace(/'/g, "\\'")}','${i.hs}')">${i.em} ${i.name}</span>`
-    ).join('') || '<div style="font-size:11px;color:var(--ink-faint)">No related products found in the local database.</div>';
-  },
-
-  renderGaps(gaps) {
-    document.getElementById('gapList').innerHTML = gaps.map((g, i) => `<div class="gap-item"><span class="gi">${i + 1}.</span><span>${g}</span></div>`).join('');
-  },
-
-  renderInvestment(companies, thesis, simulated) {
-    document.getElementById('inv-sum').textContent = `${companies.length} companies ${simulated ? '· simulated' : ''}`;
-    document.getElementById('colist').innerHTML = companies.map(co => {
-      const rc = Calc.riskCol(co.risk || 'Medium');
-      const s = Math.round(co.investScore || 55);
-      const bc = s >= 75 ? 'var(--gn)' : s >= 55 ? 'var(--am)' : 'var(--rd)';
-      return `<div class="co-row">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
-          <div><div style="font-size:13px;font-weight:600;color:var(--ink)">${co.name}</div><div style="font-size:10px;color:var(--ink-faint)">${co.oneLiner || ''}</div></div>
-          <div style="text-align:right;flex-shrink:0;margin-left:10px;">
-            <div style="font-size:10px;font-family:ui-monospace,monospace;background:var(--bl-bg);color:var(--bl-t);padding:2px 7px;border-radius:4px;">${co.ticker || '—'}</div>
-            <div style="font-size:10px;color:var(--ink-faint);margin-top:2px">${co.mktCap || ''}</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <span class="tag" data-tip="Risk reflects volatility, supply concentration, and regulatory exposure the AI estimated for this company in this sector. Low/Medium/High is directional, not a rating agency score." style="background:${rc.bg};color:${rc.tx}">Risk: ${co.risk}</span>
-          <span style="font-size:11px;color:var(--ink-faint)" data-tip="Investment Score (0-100) is a composite AI estimate combining sector growth alignment, company positioning, and the thesis below. It is not a financial rating and should not be used as sole basis for a decision.">Score: <strong style="color:${bc}">${s}/100</strong></span>
-          <span style="font-size:11px;color:var(--ink-soft)">${co.thesis || ''}</span>
-        </div>
-      </div>`;
-    }).join('');
-    document.getElementById('inv-thesis').textContent = thesis || 'No AI thesis available — proxy not configured.';
-  },
-
-  showResults() {
-    document.getElementById('results').style.display = 'block';
-    document.getElementById('empty').style.display = 'none';
-    const b = document.getElementById('overview-body'); const c = document.getElementById('overview-chv');
-    b.classList.add('open'); b.style.display = 'block'; c.classList.add('open');
-  },
-
-  showAiLoading() {
-    const skel = '<div class="skel" style="height:16px;border-radius:6px;margin-bottom:6px;"></div><div class="skel" style="height:16px;width:70%;border-radius:6px;"></div>';
-    document.getElementById('rm-sum').textContent = 'generating…';
-    document.getElementById('rmflows').innerHTML = skel;
-    document.getElementById('exp-sum').textContent = 'generating…';
-    document.getElementById('explist').innerHTML = skel;
-    document.getElementById('inv-sum').textContent = 'generating…';
-    document.getElementById('colist').innerHTML = skel;
-    document.getElementById('inv-thesis').innerHTML = '<span class="skel" style="display:inline-block;height:13px;width:90%;border-radius:6px;"></span>';
-    document.getElementById('pm-sum').textContent = 'generating…';
-  },
-
-  renderAllCharts(payload) {
-    // Redraw every chart from the last computed payload — used on theme switch and on load-from-recent.
-    this.renderOpportunity(payload.opp);
-    this.renderHistoryCharts(payload.ytSeries, payload.ytModeled, payload.tradeSeries, payload.tradeModeled);
-    this.renderPriceMarket(payload.pm);
+  async timeMachine() {
+    const out = document.getElementById('tmOut'); const product = document.getElementById('tmProduct').value.trim();
+    const d = document.getElementById('tmDate').value; if (!product || !d) return;
+    out.innerHTML = '<div class="muted">Loading history…</div>';
+    try {
+      const title = await Wiki.resolve(product); if (!title) throw new Error('no Wikipedia article found');
+      const [s, totals] = await Promise.all([Wiki.series(title), Wiki.getTotals()]);
+      if (!s) throw new Error('no history');
+      const vals = E.normalize(s.raw, s.start, totals);
+      const sy = +s.start.slice(0, 4), sm = +s.start.slice(4, 6);
+      const cut = (+d.slice(0, 4) - sy) * 12 + (+d.slice(5, 7) - sm) + 1; // include the chosen month
+      if (cut < 15) throw new Error('pick a later date — need at least 15 months of history before it (data starts ' + Fmt.month(s.start) + ')');
+      if (cut > vals.length) throw new Error('that date is in the future of the data');
+      const hist = vals.slice(0, cut); const m = E.analyzeSeries(hist); const sc = E.scoreTrend(m);
+      const after = vals.slice(cut, cut + 12); const now = E.avg(hist.slice(-3));
+      const outcome = after.length ? E.avg(after) / now - 1 : null;
+      const col = STAGE_COL[sc.stage.key];
+      const right = outcome == null ? '' : (sc.stage.positive && outcome > 0.2) || (sc.stage.negative && outcome < 0) || (!sc.stage.positive && !sc.stage.negative && outcome <= 0.2) ? '✅ The call held up.' : '❌ The call did not hold up.';
+      out.innerHTML = `<div class="acc-head">Article: "${esc(title)}". In <b>${esc(Fmt.month(d.replace('-', '')))}</b> TrendForge would have said:
+        <b>${sc.total}/100</b> <span class="stage-pill" style="background:${col.bg};color:${col.tx}">${sc.stage.l}</span><br>
+        What actually happened over the next ${after.length} months: interest averaged <b>${pctTxt(outcome)}</b> vs that moment. ${right}
+        ${sc.flags.length ? '<br><span class="muted">Warnings it would have shown: ' + esc(sc.flags.join(' ')) + '</span>' : ''}</div>`;
+      document.getElementById('tmChartWrap').style.display = 'block';
+      const lab = Fmt.monthsFrom(s.start, vals.length);
+      ChartManager.lines('tmChart', lab, [
+        { label: 'What TrendForge could see', data: vals.map((v, i) => (i < cut ? v : null)), color: ChartManager.css('--bl'), fill: true },
+        { label: 'What happened next', data: vals.map((v, i) => (i >= cut - 1 ? v : null)), color: ChartManager.css('--am'), dash: [4, 3] },
+      ]);
+    } catch (e) { out.innerHTML = `<div class="flag">${esc(e.message || e)}</div>`; document.getElementById('tmChartWrap').style.display = 'none'; }
   },
 };
 
-/* ============================= PDF EXPORT ============================= */
+/* ----------------------------- PDF ----------------------------- */
 const PDFExporter = {
   export() {
-    if (!State.currentPayload) return;
-    const p = State.currentPayload;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const W = doc.internal.pageSize.getWidth();
-    let y = 48;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-    doc.text(`TrendForge Predict — ${p.product}`, 40, y); y += 20;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(110);
-    doc.text(`${p.location} · generated ${new Date().toLocaleString()} · v6`, 40, y); y += 22;
-    doc.setDrawColor(220); doc.line(40, y, W - 40, y); y += 20;
-
-    doc.setTextColor(20); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    doc.text(`Opportunity score: ${p.opp.total}%  (${p.tag.l})`, 40, y); y += 18;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    const oneLiner = doc.splitTextToSize(p.oneLiner || '', W - 80);
-    doc.text(oneLiner, 40, y); y += oneLiner.length * 13 + 10;
-
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Score breakdown', 40, y); y += 14;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    p.opp.breakdown.forEach(b => { doc.text(`${b.label}: ${b.points}/${b.max}`, 46, y); y += 14; });
-    y += 6;
-
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Key metrics', 40, y); y += 14;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    p.metricsFlat.forEach(m => { doc.text(`${m.l}: ${m.v} (${m.d})`, 46, y); y += 14; });
-    y += 6;
-
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Risk dashboard', 40, y); y += 14;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`Supply: ${p.risks.supply}   Geo: ${p.risks.geo}   Regulatory: ${p.risks.regulatory}`, 46, y); y += 16;
-
-    if (p.exporters && p.exporters.length) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Top exporters', 40, y); y += 14;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-      p.exporters.slice(0, 6).forEach(e => { doc.text(`${e.country}: ${e.share}%`, 46, y); y += 14; });
-      y += 6;
-    }
-
-    if (y > 680) { doc.addPage(); y = 48; }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('Investment thesis', 40, y); y += 14;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    const thesis = doc.splitTextToSize(p.thesis || 'No AI thesis available.', W - 80);
-    doc.text(thesis, 40, y); y += thesis.length * 13 + 10;
-
-    doc.setFontSize(8); doc.setTextColor(150);
-    doc.text('Research purposes only. Not financial advice. Simulated/modeled sections are estimates.', 40, 800);
-
+    const p = State.currentPayload; if (!p || !window.jspdf) return;
+    const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'a4' }); const W = doc.internal.pageSize.getWidth(); let y = 48;
+    const line = (t, size, bold, gap) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); const L = doc.splitTextToSize(String(t), W - 80); if (y + L.length * size * 1.3 > 790) { doc.addPage(); y = 48; } doc.text(L, 40, y); y += L.length * size * 1.3 + (gap || 4); };
+    line(`TrendForge Predict v7 — ${p.product}`, 18, true);
+    doc.setTextColor(110); line(`${p.location} · ${new Date().toLocaleString()}${p.wiki?.simulated ? ' · DEMO DATA' : ''}`, 10); doc.setTextColor(20);
+    line(`Trend Score: ${p.score.total}/100 — ${p.score.stage.l} (confidence: ${p.confidence})`, 13, true, 6);
+    line(p.verdict || '', 10, false, 8);
+    (p.score.flags || []).forEach((f) => line('⚠ ' + f, 9));
+    line('Score breakdown', 11, true);
+    p.score.parts.forEach((b) => line(`  ${b.label}: ${b.points == null ? 'no data' : b.points + '/' + b.max}`, 10));
+    line('Key numbers', 11, true);
+    line(`  Interest vs a year ago: ${pctTxt(p.metrics?.yoy)} · 12-month trend: ${pctTxt(p.metrics?.growth12m)} · vs 2 years ago: ${pctTxt(p.metrics?.g24)}`, 10);
+    if (p.trade.available) line(`  Imports ${p.trade.latestYear}: $${Fmt.n(p.trade.latestValue)} (${p.trade.growth > 0 ? '+' : ''}${p.trade.growth}%) · HS ${p.hs.code}`, 10);
+    if (p.yt.available) line(`  YouTube: ${p.yt.uploadsLast30d} new videos in 30 days (${p.yt.uploadGrowth > 0 ? '+' : ''}${p.yt.uploadGrowth}% vs last year)`, 10);
+    line(`  Sources: ${(p.sourcesUsed || []).join(', ') || 'none'}${p.wiki.available ? ` (Wikipedia article: ${p.wiki.title})` : ''}`, 10, false, 8);
+    if (p.risks) line(`Risks — Supply: ${p.risks.supply} · Geo: ${p.risks.geo} · Regulatory: ${p.risks.regulatory}`, 10, true);
+    if (p.ai?.exporters?.length) { line('Top exporters (AI estimate)', 11, true); p.ai.exporters.slice(0, 6).forEach((e) => line(`  ${e.country}: ~${e.share}%`, 10)); }
+    if (p.ai?.thesis) { line('AI thesis', 11, true); line(p.ai.thesis, 10); }
+    doc.setFontSize(8); doc.setTextColor(150); doc.text('Research only. Not financial advice. AI sections are estimates.', 40, 815);
     doc.save(`trendforge-${p.product.replace(/\s+/g, '-').toLowerCase()}.pdf`);
   },
 };
 
-/* ============================= RECENT ANALYSES ============================= */
+/* ----------------------------- RECENT + TESTING SUMMARY ----------------------------- */
 const RecentAnalyses = {
-  async save(payload) {
+  async index() { const r = await StorageManager.get('recent7:index'); return r ? JSON.parse(r) : []; },
+  async save(p) {
     if (!State.saveEnabled) return;
-    const key = `analysis:${Date.now()}`;
-    const light = {
-      product: payload.product, location: payload.location, prob: payload.opp.total,
-      tag: payload.tag, ts: Date.now(), sourceStatus: payload.sourceStatus || {},
-    };
-    await StorageManager.set(key, JSON.stringify({ light, payload }));
-    let idx = await StorageManager.get('recent:index');
-    idx = idx ? JSON.parse(idx) : [];
-    idx.unshift(key);
-    idx = idx.slice(0, 50);
-    await StorageManager.set('recent:index', JSON.stringify(idx));
+    const key = 'analysis7:' + Date.now();
+    const st = (s) => s.simulated ? 'demo' : s.available ? 'live' : s.off ? 'off' : 'unavailable';
+    const light = { product: p.product, location: p.location, score: p.score.total, stage: p.score.stage.l, confidence: p.confidence, ts: Date.now(), sources: { wiki: st(p.wiki), trends: st(p.trends), yt: st(p.yt), trade: st(p.trade), ai: p.ai ? 'live' : p.aiOff ? 'off' : 'unavailable' } };
+    const slim = { ...p, wiki: { ...p.wiki, raw: undefined } };
+    await StorageManager.set(key, JSON.stringify({ light, payload: slim }));
+    const idx = await this.index(); idx.unshift(key);
+    await StorageManager.set('recent7:index', JSON.stringify(idx.slice(0, 40)));
     this.render();
   },
-
+  async rows() { const out = []; for (const k of await this.index()) { const raw = await StorageManager.get(k); if (raw) try { out.push({ key: k, ...JSON.parse(raw) }); } catch (e) {} } return out; },
   async render() {
-    let idx = await StorageManager.get('recent:index');
-    idx = idx ? JSON.parse(idx) : [];
-    const rows = [];
-    for (const key of idx) {
-      const raw = await StorageManager.get(key);
-      if (!raw) continue;
-      try { rows.push({ key, ...JSON.parse(raw) }); } catch (e) {}
-    }
-    const el = document.getElementById('recentRow');
-    if (!rows.length) { el.innerHTML = ''; return; }
-    el.innerHTML = rows.map(r => `<div class="recent-chip" onclick="RecentAnalyses.load('${r.key}')"><b>${r.light.prob}%</b> ${r.light.product} · ${r.light.location}</div>`).join('');
+    const rows = await this.rows();
+    document.getElementById('recentRow').innerHTML = rows.map((r) => `<div class="recent-chip" onclick="RecentAnalyses.load('${r.key}')"><b>${r.light.score}</b> ${esc(r.light.product)} · ${esc(r.light.stage)}</div>`).join('');
   },
-
-  async load(key) {
-    const raw = await StorageManager.get(key);
-    if (!raw) return;
-    const { payload } = JSON.parse(raw);
-    document.getElementById('pinput').value = payload.product;
-    Controller.renderFromPayload(payload);
-  },
+  async load(key) { const raw = await StorageManager.get(key); if (!raw) return; const { payload } = JSON.parse(raw); document.getElementById('pinput').value = payload.product; Controller.renderFromPayload(payload); },
 };
 
-/* ============================= TESTING SUMMARY ============================= */
-// Reads this browser's own analysis history and rolls it up into the kind of
-// end-of-day numbers you'd want when checking "is this actually working?":
-// how many runs, how often each data source came back live vs simulated vs
-// unavailable, average opportunity score, and which products got tested most.
-// This is PER BROWSER — if friends test on their own devices, each of them
-// has their own local history; there's no automatic cross-device rollup.
 const TestingSummary = {
   async render() {
     const el = document.getElementById('testsumContent');
-    if (!el) return;
-    let idx = await StorageManager.get('recent:index');
-    idx = idx ? JSON.parse(idx) : [];
-    const rows = [];
-    for (const key of idx) {
-      const raw = await StorageManager.get(key);
-      if (!raw) continue;
-      try { rows.push(JSON.parse(raw).light); } catch (e) {}
-    }
-    if (!rows.length) {
-      el.innerHTML = '<div style="font-size:11px;color:var(--ink-faint);padding:6px 0;">No analyses run in this browser yet — run a few, then reopen this panel.</div>';
-      return;
-    }
-
-    const total = rows.length;
-    const avgScore = Math.round(rows.reduce((s, r) => s + (r.prob || 0), 0) / total);
-    const c = { yt: { live: 0, simulated: 0, unavailable: 0 }, trade: { live: 0, simulated: 0, unavailable: 0 }, aiLoaded: 0 };
-    rows.forEach(r => {
-      const s = r.sourceStatus || {};
-      if (s.yt && c.yt[s.yt] !== undefined) c.yt[s.yt]++; else c.yt.unavailable++;
-      if (s.trade && c.trade[s.trade] !== undefined) c.trade[s.trade]++; else c.trade.unavailable++;
-      if (s.ai === 'loaded') c.aiLoaded++;
-    });
-    const productCounts = {};
-    rows.forEach(r => { productCounts[r.product] = (productCounts[r.product] || 0) + 1; });
-    const topProducts = Object.entries(productCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const oldest = rows[rows.length - 1], newest = rows[0];
-
+    const rows = (await RecentAnalyses.rows()).map((r) => r.light);
+    if (!rows.length) { el.innerHTML = '<div class="muted" style="padding:6px 0;">No analyses run in this browser yet — run a few, then reopen this panel.</div>'; return; }
+    const keys = { wiki: 'Wikipedia', trends: 'Google Trends', yt: 'YouTube', trade: 'Comtrade', ai: 'AI write-up' };
+    const count = (k, v) => rows.filter((r) => r.sources?.[k] === v).length;
+    const stages = {}; rows.forEach((r) => { stages[r.stage] = (stages[r.stage] || 0) + 1; });
     el.innerHTML = `
       <div class="g3" style="margin-bottom:10px;">
-        <div class="mc"><div class="mc-l">Total analyses run</div><div class="mc-v">${total}</div></div>
-        <div class="mc"><div class="mc-l">Avg. opportunity score</div><div class="mc-v">${avgScore}%</div></div>
-        <div class="mc"><div class="mc-l">AI enrichment success</div><div class="mc-v">${Math.round((c.aiLoaded / total) * 100)}%</div></div>
+        <div class="mc"><div class="mc-l">Analyses run</div><div class="mc-v">${rows.length}</div></div>
+        <div class="mc"><div class="mc-l">Average Trend Score</div><div class="mc-v">${Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length)}</div></div>
+        <div class="mc"><div class="mc-l">High-confidence results</div><div class="mc-v">${Math.round(rows.filter((r) => r.confidence === 'High').length / rows.length * 100)}%</div></div>
       </div>
       <div style="font-size:10px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Data source reliability</div>
-      <div class="row"><div style="flex:1;font-size:12px;">YouTube</div><div style="font-size:11px;color:var(--ink-soft);"><span class="live-badge">${c.yt.live} live</span> <span class="sim-badge">${c.yt.simulated} sim</span> <span style="color:var(--ink-faint)">${c.yt.unavailable} unavail.</span></div></div>
-      <div class="row"><div style="flex:1;font-size:12px;">Comtrade</div><div style="font-size:11px;color:var(--ink-soft);"><span class="live-badge">${c.trade.live} live</span> <span class="sim-badge">${c.trade.simulated} sim</span> <span style="color:var(--ink-faint)">${c.trade.unavailable} unavail.</span></div></div>
-      <div style="font-size:10px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px;">Most tested products (this browser)</div>
-      <div class="chips">${topProducts.map(([p, n]) => `<span class="chip">${p} × ${n}</span>`).join('') || '—'}</div>
-      <div style="font-size:10px;color:var(--ink-faint);margin-top:10px;line-height:1.5;">
-        Range: ${new Date(oldest.ts).toLocaleString()} → ${new Date(newest.ts).toLocaleString()}.
-        This only reflects tests run in <em>this</em> browser. If you want a combined view across everyone testing it,
-        that needs a small server-side logging endpoint — ask if you'd like that added.
-      </div>`;
+      ${Object.entries(keys).map(([k, n]) => `<div class="row"><div style="flex:1;font-size:12px;">${n}</div><div style="font-size:11px;"><span class="live-badge">${count(k, 'live')} live</span> <span class="off-badge">${count(k, 'off')} not set up</span> <span style="color:var(--ink-faint)">${count(k, 'unavailable')} no data</span></div></div>`).join('')}
+      <div style="font-size:10px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px;">Results by stage</div>
+      <div class="chips">${Object.entries(stages).map(([s, n]) => `<span class="chip">${esc(s)} × ${n}</span>`).join('')}</div>`;
   },
 };
 
-/* ============================= CONTROLLER ============================= */
-const Controller = {
-  async run() {
-    const product = document.getElementById('pinput').value.trim();
-    const countrySel = document.getElementById('country');
-    const location = countrySel.options[countrySel.selectedIndex]?.text || 'Global';
-    const countryCode = countrySel.value || '356';
-    if (!product) return;
-
-    DashboardRenderer.clearLog();
-    document.getElementById('sbtn').disabled = true;
-    document.getElementById('pdfBtn').disabled = true;
-    DashboardRenderer.setStatus(`Analysing "${product}"...`);
-    DashboardRenderer.log(`Product: "${product}" | Location: ${location}`);
-
-    try {
-      await this._runInner(product, location, countryCode);
-    } catch (err) {
-      DashboardRenderer.log(`Error: ${err.message || err}`, 'er');
-      DashboardRenderer.setStatus('Failed — see log');
-      console.error('TrendForge run() failed:', err);
-    } finally {
-      document.getElementById('sbtn').disabled = false;
-    }
-  },
-
-  async _runInner(product, location, countryCode) {
-    const manualHs = document.getElementById('hsOverride').value.trim();
-    const hs = manualHs ? { code: manualHs, matched: true, manual: true } : Calc.getHS(product);
-    if (manualHs) DashboardRenderer.log(`HS code manually set to ${manualHs}`, 'wa');
-
-    const category = (ProductDB.items.find(i => i.name.toLowerCase() === product.toLowerCase()) || {}).cat;
-    const price = document.getElementById('retailPrice').value;
-
-    // ---- PHASE 1: YouTube + Comtrade only. These are fast (a few seconds).
-    // We deliberately do NOT await the AI call here — it's the slow one
-    // (real text generation, often 10-40s) and shouldn't block everything else.
-    DashboardRenderer.log('Fetching YouTube + Comtrade (fast path)...');
-    const [yt, trade] = await Promise.all([
-      ApiService.fetchYouTube(product, location),
-      ApiService.fetchComtrade(hs.code, countryCode),
-    ]);
-
-    if (yt.simulated) DashboardRenderer.log(`YouTube: simulated (${yt.reason})`, 'er');
-    else if (yt.available) DashboardRenderer.log(`YouTube: ${Calc.fn(yt.totalViews)} views (real)`, 'ok');
-    else DashboardRenderer.log(`YouTube unavailable: ${yt.reason}`, 'er');
-
-    if (trade.simulated) DashboardRenderer.log(`Comtrade: simulated (${trade.reason})`, 'er');
-    else if (trade.available) DashboardRenderer.log(`Comtrade: ${trade.growth}% YoY (real)`, 'ok');
-    else DashboardRenderer.log(`Comtrade unavailable: ${trade.reason}`, 'er');
-
-    const sat = Calc.calcSaturation(yt.available ? yt.totalResults : null);
-    const scFallback = {
-      raw: trade.available ? Math.round(Math.abs(trade.growth) * 0.2) : 10,
-      prod: 7, ship: 9, mktg: 5,
-    };
-    const totalScPctFallback = scFallback.raw + scFallback.prod + scFallback.ship + scFallback.mktg;
-    const marginFallback = Calc.calcMargin(price, totalScPctFallback);
-
-    const oppFallback = Calc.calcOpportunity({
-      ytViews: yt.available ? yt.totalViews : 0,
-      tradeGrowth: trade.available ? trade.growth : 0,
-      satPct: sat.pct,
-      marginPct: marginFallback ? marginFallback.marginPct : 0,
-      hasPrice: !!marginFallback,
-    });
-    const tagFallback = Calc.tagFor(oppFallback.total);
-
-    const metricsFallback = [
-      { l: 'Score', v: oppFallback.total + '%', d: tagFallback.l, dc: 'var(--gn)' },
-      { l: 'YouTube views', v: yt.available ? Calc.fn(yt.totalViews) : '—', d: yt.available ? (yt.simulated ? 'simulated' : 'live') : yt.reason, dc: 'var(--bl)' },
-      { l: 'Import YoY', v: trade.available ? (trade.growth > 0 ? '+' : '') + trade.growth + '%' : '—', d: trade.available ? (trade.simulated ? 'simulated' : 'live') : trade.reason, dc: 'var(--gn)' },
-      { l: 'HS code', v: hs.code || '—', d: hs.manual ? 'manual override' : hs.matched ? 'matched' : 'unverified', dc: 'var(--am)' },
-    ];
-
-    const anySimulatedPhase1 = (yt.simulated || trade.simulated || State.simulationForced);
-    DashboardRenderer.showSimBanner(anySimulatedPhase1, State.simulationForced);
-    DashboardRenderer.renderOverview(product, location, oppFallback.total, tagFallback, 'Generating AI summary…', metricsFallback);
-    DashboardRenderer.renderOpportunity(oppFallback);
-    DashboardRenderer.renderSignals([
-      { n: 'YouTube views', headline: `YT: ${Calc.fn(yt.available ? yt.totalViews : 0)}`, note: yt.available ? (yt.simulated ? 'Simulated' : 'Live YouTube API v3') : yt.reason, s: Math.min(Math.round((yt.totalViews || 0) / 800000), 100), v: Calc.fn(yt.totalViews), c: 'var(--bl)', badge: yt.simulated ? '<span class="sim-badge">simulated</span>' : (yt.available ? '<span class="live-badge">live</span>' : '') },
-      { n: 'Import growth', headline: '', note: trade.available ? (trade.simulated ? 'Simulated' : 'Live UN Comtrade') : trade.reason, s: trade.available ? Math.min(trade.growth / 2 + 30, 100) : 0, v: trade.available ? (trade.growth > 0 ? '+' : '') + trade.growth + '%' : '—', c: 'var(--gn)', badge: trade.simulated ? '<span class="sim-badge">simulated</span>' : (trade.available ? '<span class="live-badge">live</span>' : '') },
-    ]);
-
-    const ytSeriesFallback = Calc.synthesizeHistory(yt.available ? yt.totalViews : 1000, 25);
-    const tradeSeriesFallback = Calc.synthesizeHistory(trade.available ? trade.y2024 : 1000000, trade.available ? trade.growth : 15);
-    DashboardRenderer.renderHistoryCharts(ytSeriesFallback, true, tradeSeriesFallback, true);
-
-    const pmFallback = {
-      marketSizeLabel: '$' + Calc.fn(trade.available ? trade.y2024 : 500000000),
-      simulated: true,
-      direction: (trade.available ? trade.growth : 10) > 0 ? '↑ Rising' : '↓ Falling',
-      directionDetail: trade.available ? `${trade.growth}% YoY import growth` : 'estimated trend',
-      avgPriceLabel: price ? '$' + Number(price).toLocaleString() : '—',
-      series: Calc.synthesizeHistory(100, trade.available ? Math.min(trade.growth, 40) : 8),
-    };
-    DashboardRenderer.renderPriceMarket(pmFallback);
-
-    DashboardRenderer.renderSupplyChain(scFallback, true);
-    const risksFallback = Calc.calcRisks([], category, null);
-    DashboardRenderer.renderRisks(risksFallback);
-    DashboardRenderer.renderRelated(ProductDB.related(product), product);
-    DashboardRenderer.renderGaps(Calc.calcContentGaps(product, yt, trade.available ? trade.growth : 0, null));
-    DashboardRenderer.renderSaturation(sat);
-    DashboardRenderer.showAiLoading();
-
-    State.lastResult = { totalScPct: totalScPctFallback };
-    Controller.recalcProfitability();
-
-    State.currentPayload = {
-      product, location, opp: oppFallback, tag: tagFallback, oneLiner: '',
-      metricsFlat: metricsFallback, risks: risksFallback, exporters: [], thesis: '',
-      ytSeries: ytSeriesFallback, ytModeled: true, tradeSeries: tradeSeriesFallback, tradeModeled: true, pm: pmFallback,
-    };
-
-    DashboardRenderer.showResults();
-    DashboardRenderer.setStatus(`${product} · core data loaded, enriching with AI…`);
-
-    // ---- PHASE 2: AI enrichment, streamed in whenever it resolves.
-    DashboardRenderer.log('Fetching AI intelligence (this is usually the slow step)...', 'wa');
-    let ai = null;
-    try {
-      ai = await ApiService.fetchClaude(product, location);
-    } catch (e) {
-      DashboardRenderer.log(`AI fetch failed: ${e.message || e}`, 'er');
-    }
-    DashboardRenderer.log(ai ? 'AI intelligence loaded' : 'No AI data (proxy not configured or simulation on)', ai ? 'ok' : 'er');
-
-    const sc = {
-      raw: ai?.scRawMat ?? scFallback.raw,
-      prod: ai?.scProduction ?? scFallback.prod,
-      ship: ai?.scShipping ?? scFallback.ship,
-      mktg: ai?.scMarketing ?? scFallback.mktg,
-    };
-    const totalScPct = DashboardRenderer.renderSupplyChain(sc, State.simulationForced);
-    const margin = Calc.calcMargin(price, totalScPct);
-    const opp = Calc.calcOpportunity({
-      ytViews: yt.available ? yt.totalViews : 0,
-      tradeGrowth: trade.available ? trade.growth : 0,
-      satPct: sat.pct,
-      marginPct: margin ? margin.marginPct : 0,
-      hasPrice: !!margin,
-    });
-    const tag = Calc.tagFor(opp.total);
-    DashboardRenderer.log(`Opportunity score (final): ${opp.total}% (${tag.l})`, 'ok');
-
-    const metricsData = [
-      { l: 'Score', v: opp.total + '%', d: tag.l, dc: 'var(--gn)' },
-      { l: 'YouTube views', v: yt.available ? Calc.fn(yt.totalViews) : '—', d: yt.available ? (yt.simulated ? 'simulated' : 'live') : yt.reason, dc: 'var(--bl)' },
-      { l: 'Import YoY', v: trade.available ? (trade.growth > 0 ? '+' : '') + trade.growth + '%' : '—', d: trade.available ? (trade.simulated ? 'simulated' : 'live') : trade.reason, dc: 'var(--gn)' },
-      { l: 'HS code', v: hs.code || ai?.hsCode || '—', d: hs.manual ? 'manual override' : hs.matched ? 'matched' : 'unverified', dc: 'var(--am)' },
-    ];
-    DashboardRenderer.renderOverview(product, location, opp.total, tag, ai?.oneLiner || 'No AI summary available.', metricsData);
-    DashboardRenderer.renderOpportunity(opp);
-
-    const ytModeled = !ai?.ytHistory;
-    const ytSeries = ai?.ytHistory || ytSeriesFallback;
-    const tradeModeled = !ai?.tradeHistory;
-    const tradeSeries = ai?.tradeHistory || tradeSeriesFallback;
-    DashboardRenderer.renderHistoryCharts(ytSeries, ytModeled, tradeSeries, tradeModeled);
-
-    const pm = {
-      marketSizeLabel: '$' + Calc.fn(trade.available ? trade.y2024 : (ai?.marketSize || 500000000)),
-      simulated: State.simulationForced || !ai,
-      direction: (trade.available ? trade.growth : 10) > 0 ? '↑ Rising' : '↓ Falling',
-      directionDetail: trade.available ? `${trade.growth}% YoY import growth` : 'estimated trend',
-      avgPriceLabel: ai?.avgPrice ? ('$' + ai.avgPrice) : (price ? '$' + Number(price).toLocaleString() : '—'),
-      series: ai?.priceHistory || pmFallback.series,
-    };
-    DashboardRenderer.renderPriceMarket(pm);
-
-    DashboardRenderer.renderRawMaterialsFlow(ai?.rawMaterials || [], product, State.simulationForced);
-    DashboardRenderer.renderExporters(ai?.exporters || []);
-
-    const risks = Calc.calcRisks(ai?.exporters || [], category, ai?.risks);
-    DashboardRenderer.renderRisks(risks);
-
-    const gaps = Calc.calcContentGaps(product, yt, trade.available ? trade.growth : 0, ai?.contentGaps);
-    DashboardRenderer.renderGaps(gaps);
-
-    DashboardRenderer.renderInvestment(ai?.companies || [], ai?.thesis, State.simulationForced);
-
-    State.lastResult = { totalScPct };
-    Controller.recalcProfitability();
-
-    const sourceStatus = {
-      yt: !yt.available ? 'unavailable' : (yt.simulated ? 'simulated' : 'live'),
-      trade: !trade.available ? 'unavailable' : (trade.simulated ? 'simulated' : 'live'),
-      ai: ai ? 'loaded' : 'unavailable',
-    };
-
-    const payload = {
-      product, location, opp, tag, oneLiner: ai?.oneLiner || '',
-      metricsFlat: metricsData, risks, exporters: ai?.exporters || [], thesis: ai?.thesis || '',
-      ytSeries, ytModeled, tradeSeries, tradeModeled, pm, sourceStatus,
-    };
-    State.currentPayload = payload;
-
-    document.getElementById('pdfBtn').disabled = false;
-    DashboardRenderer.setStatus(`${product} · ${new Date().toLocaleTimeString()}`);
-
-    await RecentAnalyses.save(payload);
-  },
-
-  renderFromPayload(payload) {
-    State.currentPayload = payload;
-    document.getElementById('country').value = document.getElementById('country').value;
-    DashboardRenderer.renderOverview(payload.product, payload.location, payload.opp.total, payload.tag, payload.oneLiner, payload.metricsFlat);
-    DashboardRenderer.renderOpportunity(payload.opp);
-    DashboardRenderer.renderHistoryCharts(payload.ytSeries, payload.ytModeled, payload.tradeSeries, payload.tradeModeled);
-    DashboardRenderer.renderPriceMarket(payload.pm);
-    DashboardRenderer.renderRisks(payload.risks);
-    DashboardRenderer.renderExporters(payload.exporters);
-    DashboardRenderer.showResults();
-    DashboardRenderer.setStatus(`${payload.product} · loaded from recent`);
-  },
-
-  recalcProfitability() {
-    if (!State.lastResult) return;
-    const price = document.getElementById('retailPrice').value;
-    const margin = Calc.calcMargin(price, State.lastResult.totalScPct);
-    DashboardRenderer.renderProfitability(margin);
-  },
-};
+/* ----------------------------- SETUP STATUS ----------------------------- */
+async function checkSources() {
+  const el = document.getElementById('srcStatus');
+  const chip = (n, ok, note) => `<span class="chip" title="${esc(note)}">${ok === true ? '🟢' : ok === false ? '⚪' : '🟡'} ${n}</span>`;
+  const probe = async (path) => { try { const d = await ApiService.getJSON(path); return d.configured !== false; } catch (e) { return null; } };
+  const [w, yt, tr, ai] = await Promise.all([
+    Wiki.getTotals().then(() => true).catch(() => false),
+    probe('/api/youtube'), probe('/api/trends'), probe('/api/claude'),
+  ]);
+  el.innerHTML = chip('Wikipedia', w, 'free, no key') + chip('Trade data', yt === null ? null : true, 'works on the server without a key; COMTRADE_API_KEY makes it faster')
+    + chip('YouTube', yt, 'YT_API_KEY') + chip('Google Trends', tr, 'SERPAPI_KEY') + chip('AI write-up', ai, 'ANTHROPIC_API_KEY')
+    + (yt === null ? '<div class="muted" style="width:100%">Server not reachable from this page — only Wikipedia will work. That is fine for testing the core engine.</div>' : '');
+}
 
 function tog(id) {
-  const b = document.getElementById(id + '-body');
-  const c = document.getElementById(id + '-chv');
-  if (!b) return;
+  const b = document.getElementById(id + '-body'), c = document.getElementById(id + '-chv'); if (!b) return;
   const open = b.classList.contains('open');
-  if (open) { b.style.display = 'none'; b.classList.remove('open'); c.classList.remove('open'); }
-  else { b.style.display = 'block'; b.classList.add('open'); c.classList.add('open'); }
+  b.classList.toggle('open', !open); b.style.display = open ? 'none' : 'block'; c.classList.toggle('open', !open);
 }
-
-function onSimToggle() {
-  State.simulationForced = document.getElementById('simToggle').checked;
-}
-function onSaveToggle() {
-  State.saveEnabled = document.getElementById('saveToggle').checked;
-}
+function onSimToggle() { State.simulationForced = document.getElementById('simToggle').checked; }
+function onSaveToggle() { State.saveEnabled = document.getElementById('saveToggle').checked; }
 
 async function boot() {
   populateCountries();
   ProductDB.render('All');
   await ThemeManager.init();
-  const notes = {
-    artifact: 'Saved via Claude.ai app storage for this account.',
-    local: 'Saved in this browser (localStorage) — private to this device, persists across visits.',
-    memory: 'No persistent storage available in this browser — history will be kept for this page load only.',
-  };
-  document.getElementById('storageNote').textContent = notes[StorageManager.backend] || '';
+  document.getElementById('storageNote').textContent = { artifact: 'Saved to your Claude account storage.', local: 'Saved in this browser only — private to this device.', memory: 'No storage available — kept for this visit only.' }[StorageManager.backend];
   await RecentAnalyses.render();
+  const prev = await StorageManager.get('accuracy:last');
+  if (prev) { try { const s = JSON.parse(prev); document.getElementById('acc-sum').textContent = `last run: strong calls worked ${s.strongGrew}% vs ${s.baseRateGrew}% random`; } catch (e) {} }
+  checkSources();
 }
 boot();
+
 </script>
 </body>
 </html>
